@@ -1,36 +1,24 @@
-.pinkfie-root{
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-.pinkfie-root > * {
-    position: absolute;
-    left: 0;
-    top: 0;
-    transform: translateZ(0);
-}
-
 .watcher-pinkfie-menu-vertical {
     background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(2px);
 }
 .watcher-pinkfie-menu-vertical div {
-    padding: 3px;
-    margin: 3px;
-    font-size: 13px;
-    color: rgb(255, 255, 255);
+  padding: 3px;
+  margin: 3px;
+  font-size: 15px;
+  color: rgb(255, 255, 255);
 }
 .watcher-pinkfie-menu-vertical div:hover {
-    background-color: #ffffff;
-    color: #000000;
-    cursor: pointer;
+  background-color: #ffffff;
+  color: #000000;
+  cursor: pointer;
 }
 
 .pinkfie-player-root{
-    font-family: monospace;
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
 }
 .pinkfie-player-stage{
-    position: relative;
+  position: relative;
 }
 /* Player Click To Play */
 .pinkfie-player-click-to-play-container {
@@ -56,57 +44,26 @@
 
 /* Player Fullscreen */
 .pinkfie-player-root[fullscreen] {
-    position: absolute;
-    top: 0;
-    left: 0;
-    background: #000;
-    height: 100%;
-    width: 100%;
-  }
-  .pinkfie-body-fullscreen {
-    background: #000;
-    overflow: hidden;
-  }
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: #000;
+  height: 100%;
+  width: 100%;
+}
+.pinkfie-body-fullscreen {
+  background: #000;
+  overflow: hidden;
+}
 
-/* Player Loading */
-.pinkfie-player-loading{
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background: #0d0;
-  }
-.pinkfie-player-loading-anim{
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, 75px);
-  color: #000;
+/* Player Settings */
+.watcher-pinkfie-setting {
+  width: 100%;
+  height: 100%;
+  color: #fff;
 }
-.pinkfie-player-loading-image {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -80px);
-  width: 320px;
-  height: 120px;
-  margin: auto;
-  background-image: url(data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIyMTguMDk0NjUiIGhlaWdodD0iNTguMzk5NjQiIHZpZXdCb3g9IjAsMCwyMTguMDk0NjUsNTguMzk5NjQiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xMzAuODg4MjYsLTE1MC44MDAxOCkiPjxnIGRhdGEtcGFwZXItZGF0YT0ieyZxdW90O2lzUGFpbnRpbmdMYXllciZxdW90Ozp0cnVlfSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJub256ZXJvIiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBzdHJva2UtZGFzaGFycmF5PSIiIHN0cm9rZS1kYXNob2Zmc2V0PSIwIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6IG5vcm1hbCI+PHBhdGggZD0iTTI2My4zMzg1LDIwNS4xNzk4NGwxMC44MjQ1MiwtNDYuMzAzNDZsMjcuMjAwMDgsLTAuMzIzOCIgc3Ryb2tlPSIjMDAzNmZmIi8+PHBhdGggZD0iTTI2OS42NzAxMSwxODAuODIyNmwyNC40OTQ0NCwwLjAzODEzIiBzdHJva2U9IiMwMDM2ZmYiLz48cGF0aCBkPSJNMTg5LjM5MTQ0LDE1Ni4yOTY0NWwtOS45MDAwOSw0Ni43Mjg0MyIgc3Ryb2tlPSIjZTUwMGZmIi8+PHBhdGggZD0iTTE5Mi42ODQ4MSwyMDMuMzE1NTNsNi43MzIwNiwtMjcuNzIwMjYiIHN0cm9rZT0iI2U1MDBmZiIvPjxwYXRoIGQ9Ik0xOTcuNDM2ODYsMTg3LjA3OTM4YzAsMCA0LjI1NjMyLC0xMC4wMDc4NCAxMy4wOTE1MSwtOS42MTI4N2MxMC41MjA0MSwwLjMyODY5IDMuMTQ0NjQsMjYuNjQxMDMgMy4xNDQ2NCwyNi42NDEwMyIgc3Ryb2tlPSIjZTUwMGZmIi8+PHBhdGggZD0iTTMwMy43MzEzNSwyMDUuMTk5ODJsNS41NDQwNSwtMzQuOTczNjciIHN0cm9rZT0iIzAwMzZmZiIvPjxwYXRoIGQ9Ik0zNDMuMTY1MTQsMjAwLjM2NTExYzAsMCAtNC44NjczNCw1LjY5MDY5IC0xMi41ODcsNC4yNzk4N2MtOS4wMDk4MiwtMS42NDY2IC0xMC45NjA1MSwtOS40NjY4OCAtMTEuMDU1MjcsLTE1LjA1OTc1Yy0wLjEwNzk1LC02LjM3MTY5IDQuMDEyNDQsLTE1LjEyODQ2IDEzLjUwMTkyLC0xNS42ODAxNmM2Ljk2MTMzLC0wLjQwNDcyIDEyLjkyOTcsNS4zNDYyMyAxMS45ODg5MSwxMi44ODQzYy0wLjAzOTE4LDAuMzEzOTIgLTIzLjkxODg4LDAuOTE0NTEgLTIzLjkxODg4LDAuOTE0NTEiIHN0cm9rZT0iIzAwMzZmZiIvPjxnIHN0cm9rZT0iI2U1MDBmZiI+PHBhdGggZD0iTTEzNC44ODgyNiwyMDMuNjA4OWwxNS4wMTk1NSwtNDguNDM4MDYiLz48cGF0aCBkPSJNMTUyLjExNjU2LDE1NC44MDAxOGMwLDAgMjYuNzkzNDEsMS4xNzEyNCAyMi41ODkyMywxMi41MjM3M2MtNC4yMDQxOCwxMS4zNTI0OSAtMzAuMTYxMzEsNy45MjMwNiAtMzAuMTYxMzEsNy45MjMwNiIvPjwvZz48cGF0aCBkPSJNMjM1LjUwNjcxLDE1Ny41MTU3M2wtOS45MDAwOSw0Ni43Mjg0MyIgc3Ryb2tlPSIjZTUwMGZmIi8+PHBhdGggZD0iTTI0OS41MDE1NSwyMDQuMDQ1NjdsLTE3LjA3OTQ3LC0xNi45ODgyN2wyMi40OTg2LC0xMC42MDAyOSIgc3Ryb2tlPSIjZTUwMGZmIi8+PC9nPjwvZz48L3N2Zz4=); background-size: 100% 100%;
-}
-.pinkfie-player-loading-progress{
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  margin: 30px 0 0 -20px;
-  width: 30px;
-  height: 30px;
-  border-radius: 30px;
-  border: 5px solid #ff00f2;
-  border-right-color: #000;
-  border-left-color: #000;
-  border-top-color: #5c51ff;
-  animation: pinkfie-player-loading-progress 0.8s infinite linear;
-}
-@keyframes pinkfie-player-loading-progress {
-  0% {transform: rotate(0deg);}
-  100% {transform: rotate(360deg);}
+.watcher-pinkfie-setting a {
+  cursor: pointer;
+  text-decoration: underline;
+  color: #fff;
 }

@@ -1,22 +1,17 @@
 /* 
-
-
-
-*/
+ * PinkFie - The Flash Player Emulator in JavaScript
+ *
+ * 21/09/2024
+ *
+ * Made in Peru
+ */
 
 var PinkFie = (function() {
-	function cloneArray(src) {
-		var arr = [];
-		var length = src.length;
-		for (var i = 0; i < length; i++) {
-			arr[i] = src[i];
-		}
-		return arr;
-	}
-	function cloneObject(src) {
+	const utils = {};
+	utils.cloneObject = function(src) {
 		return JSON.parse(JSON.stringify(src));
 	}
-	function multiplicationMatrix(a, b) {
+	utils.multiplicationMatrix = function(a, b) {
 		return [
 			a[0] * b[0] + a[2] * b[1],
 			a[1] * b[0] + a[3] * b[1],
@@ -26,7 +21,7 @@ var PinkFie = (function() {
 			a[1] * b[4] + a[3] * b[5] + a[5]
 		];
 	}
-	function multiplicationColor(a, b) {
+	utils.multiplicationColor = function(a, b) {
 		return [
 			a[0] * b[0],
 			a[1] * b[1],
@@ -38,7 +33,7 @@ var PinkFie = (function() {
 			a[3] * b[7] + a[7]
 		];
 	}
-	function generateColorTransform(color, data) {
+	utils.generateColorTransform = function(color, data) {
 		return [
 			Math.max(0, Math.min((color[0] * data[0]) + data[4], 255)) | 0,
 			Math.max(0, Math.min((color[1] * data[1]) + data[5], 255)) | 0,
@@ -46,7 +41,10 @@ var PinkFie = (function() {
 			Math.max(0, Math.min((color[3] * 255 * data[3]) + data[7], 255)) / 255
 		];		
 	}
-	function boundsMatrix(bounds, matrix) {
+	utils.generateMatrix = function(point, data) {
+		return [(point[0] * data[0] + point[1] * data[2] + data[4]), point[0] * data[1] + point[1] * data[3] + data[5]];
+	}
+	utils.boundsMatrix = function(bounds, matrix) {
 		var no = Number.MAX_VALUE;
 		var xMax = -no;
 		var yMax = -no;
@@ -71,39 +69,10 @@ var PinkFie = (function() {
 			yMax: Math.max(Math.max(Math.max(Math.max(yMax, y0), y1), y2), y3)
 		};
 	}
-	function linearGradientXY(m) {
-		var x0 = -16384 * m[0] - 16384 * m[2] + m[4];
-		var x1 =  16384 * m[0] - 16384 * m[2] + m[4];
-		var x2 = -16384 * m[0] + 16384 * m[2] + m[4];
-		var y0 = -16384 * m[1] - 16384 * m[3] + m[5];
-		var y1 =  16384 * m[1] - 16384 * m[3] + m[5];
-		var y2 = -16384 * m[1] + 16384 * m[3] + m[5];
-		var vx2 = x2 - x0;
-		var vy2 = y2 - y0;
-		var r1 = Math.sqrt(vx2 * vx2 + vy2 * vy2);
-		vx2 /= r1;
-		vy2 /= r1;
-		var r2 = (x1 - x0) * vx2 + (y1 - y0) * vy2;
-		return [x0 + r2 * vx2, y0 + r2 * vy2, x1, y1];
-	}
-	function checkImageColorTransform(colorTransform) {
-		return (colorTransform[0] !== 1) || (colorTransform[1] !== 1) || (colorTransform[2] !== 1) || colorTransform[4] || colorTransform[5] || colorTransform[6];
-	}
-	function objectCopy(src) {
-		var obj = {};
-		for (var name in src) {
-			obj[name] = src[name];
-		}
+	utils.objectCopy = function(src) {
+		const obj = {};
+		for (var name in src) obj[name] = src[name];
 		return obj;
-	}
-	function removeIdArray(array, i) {
-		if (array.length) {
-			if (i >= array.length) {
-				array.pop();
-			} else {
-				array.splice(i, 1);
-			}
-		}
 	}
 	function decodeDefineBitsLossless(bitmapTag) {
 		var isAlpha = (bitmapTag.version == 2);
@@ -171,13 +140,9 @@ var PinkFie = (function() {
 			var margeData = [];
 			var _jpegTables = new Uint8Array(jpedTable);
 			var len = _jpegTables.length - 2;
-			for (var idx = 0; idx < len; idx++) {
-				margeData[margeData.length] = _jpegTables[idx];
-			}
+			for (var idx = 0; idx < len; idx++) margeData[margeData.length] = _jpegTables[idx];
 			len = jpedData.length;
-			for (idx = 2; idx < len; idx++) {
-				margeData[margeData.length] = jpedData[idx];
-			}
+			for (idx = 2; idx < len; idx++) margeData[margeData.length] = jpedData[idx];
 			return margeData;
 		} else {
 			return jpedData;
@@ -259,8 +224,13 @@ var PinkFie = (function() {
 		var fi = removeInvalidJpegData(jpedData);
 		image.src = "data:image/jpeg;base64," + window.btoa(fi);
 	}
+	const inherits = function(cla, sup) {
+		cla.prototype = Object.create(sup.prototype);
+		cla.prototype.constructor = cla;
+		cla.parent = sup;
+	}
 	const twips = 20;
-	const ByteStream = function(arrayBuffer, start = 0, end = arrayBuffer.byteLength) {
+	const ByteInput = function(arrayBuffer, start = 0, end = arrayBuffer.byteLength) {
 		this.arrayBuffer = arrayBuffer;
 		this.dataView = new DataView(arrayBuffer);
 		this.start = start;
@@ -269,7 +239,7 @@ var PinkFie = (function() {
 		this._position = start;
 		this.littleEndian = true;
 	}
-	Object.defineProperties(ByteStream.prototype, {
+	Object.defineProperties(ByteInput.prototype, {
 		position: {
 			get: function() {
 				return this._position - this.start;
@@ -277,15 +247,25 @@ var PinkFie = (function() {
 			set: function(value) {
 				this._position = (value + this.start);
 			}
+		},
+		length: {
+			get: function() {
+				return this.end - this.start;
+			}
+		},
+		bytesAvailable: {
+			get: function() {
+				return this.end - this._position;
+			}
 		}
 	});
-	ByteStream.prototype.extract = function(length) {
-		return new ByteStream(this.arrayBuffer, this._position, this._position + length);
+	ByteInput.prototype.extract = function(length) {
+		return new ByteInput(this.arrayBuffer, this._position, this._position + length);
 	}
-	ByteStream.prototype.from = function(start, end) {
-		return new ByteStream(this.arrayBuffer, this.start + start, this.start + end);
+	ByteInput.prototype.from = function(start, end) {
+		return new ByteInput(this.arrayBuffer, this.start + start, this.start + end);
 	}
-	ByteStream.prototype.readString = function(length) {
+	ByteInput.prototype.readString = function(length) {
 		var str = "";
 		var count = length;
 		while (count) {
@@ -295,13 +275,13 @@ var PinkFie = (function() {
 		}
 		return str;
 	}
-	ByteStream.prototype.readBytes = function(length) {
+	ByteInput.prototype.readBytes = function(length) {
 		this.byteAlign();
 		var bytes = this.arrayBuffer.slice(this._position, this._position + length);
 		this._position += length;
 		return bytes;
 	}
-	ByteStream.prototype.readStringWithUntil = function() {
+	ByteInput.prototype.readStringWithUntil = function() {
 		this.byteAlign();
 		var bo = this._position;
 		var offset = 0;
@@ -310,71 +290,61 @@ var PinkFie = (function() {
 		while (true) {
 			var val = this.dataView.getUint8(bo + offset);
 			offset++;
-			if (val === 0 || (bo + offset) >= length) {
-				break;
-			}
+			if (val === 0 || (bo + offset) >= length) break;
 			ret += String.fromCharCode(val);
 		}
 		this._position = bo + offset;
 		return ret;
 	}
-	ByteStream.prototype.readStringWithLength = function() {
+	ByteInput.prototype.readStringWithLength = function() {
 		var count = this.readUint8();
 		var val = '';
 		while (count--) {
 			var dat = this.dataView.getUint8(this._position++);;
-			if (dat == 0) {
-				continue;
-			}
+			if (dat == 0) continue;
 			val += String.fromCharCode(dat);
 		}
 		return val;
 	}
-	ByteStream.prototype.incrementOffset = function(byteInt, bitInt) {
+	ByteInput.prototype.incrementOffset = function(byteInt, bitInt) {
 		this._position += byteInt;
 		this.bit_offset += bitInt;
 		this.byteCarry();
 	}
-	ByteStream.prototype.setOffset = function(byteInt, bitInt) {
+	ByteInput.prototype.setOffset = function(byteInt, bitInt) {
 		this._position = byteInt + this.start;
 		this.bit_offset = bitInt;
 	}
-	ByteStream.prototype.getLength = function() {
-		return this.end - this.start;
-	}
-	ByteStream.prototype.getBytesAvailable = function() {
-		return this.end - this._position;
-	}
 	//////// ByteReader ////////
-	ByteStream.prototype.byteAlign = function() {
+	ByteInput.prototype.byteAlign = function() {
 		if (!this.bit_offset) return;
 		this._position += ((this.bit_offset + 7) / 8) | 0;
 		this.bit_offset = 0;
 	}
-	ByteStream.prototype.readUint8 = function() {
+	ByteInput.prototype.readUint8 = function() {
 		this.byteAlign();
 		return this.dataView.getUint8(this._position++);
 	}
-	ByteStream.prototype.readUint16 = function() {
+	ByteInput.prototype.readUint16 = function() {
 		this.byteAlign();
 		var value = this.dataView.getUint16(this._position, this.littleEndian);
 		this._position += 2;
 		return value;
 	}
-	ByteStream.prototype.readUint24 = function() {
+	ByteInput.prototype.readUint24 = function() {
 		this.byteAlign();
 		var value = this.dataView.getUint8(this._position++);
 		value += (0x100 * this.dataView.getUint8(this._position++));
 		value += (0x10000 * this.dataView.getUint8(this._position++));
 		return value;
 	}
-	ByteStream.prototype.readUint32 = function() {
+	ByteInput.prototype.readUint32 = function() {
 		this.byteAlign();
 		var value = this.dataView.getUint32(this._position, this.littleEndian);
 		this._position += 4;
 		return value;
 	}
-	ByteStream.prototype.readUint64 = function() {
+	ByteInput.prototype.readUint64 = function() {
 		this.byteAlign();
 		var value = this.dataView.getUint8(this._position++);
 		value += (0x100 * this.dataView.getUint8(this._position++));
@@ -386,38 +356,38 @@ var PinkFie = (function() {
 		value += ((0x100000000 * 0x1000000) * this.dataView.getUint8(this._position++));
 		return value;
 	}
-	ByteStream.prototype.readInt8 = function() {
+	ByteInput.prototype.readInt8 = function() {
 		this.byteAlign();
 		return this.dataView.getInt8(this._position++);
 	}
-	ByteStream.prototype.readInt16 = function() {
+	ByteInput.prototype.readInt16 = function() {
 		this.byteAlign();
 		var value = this.dataView.getInt16(this._position, this.littleEndian);
 		this._position += 2;
 		return value;
 	}
-	ByteStream.prototype.readInt24 = function() {
+	ByteInput.prototype.readInt24 = function() {
 		let t = this.readUint24();
 		return t >> 23 && (t -= 16777216), t;
 	}
-	ByteStream.prototype.readInt32 = function() {
+	ByteInput.prototype.readInt32 = function() {
 		this.byteAlign();
 		var value = this.dataView.getInt32(this._position, this.littleEndian);
 		this._position += 4;
 		return value;
 	}
-	ByteStream.prototype.readFixed8 = function() {
+	ByteInput.prototype.readFixed8 = function() {
 		return +(this.readInt16() / 0x100).toFixed(1);
 	}
-	ByteStream.prototype.readFixed16 = function() {
+	ByteInput.prototype.readFixed16 = function() {
 		return +(this.readInt32() / 0x10000).toFixed(2);
 	}
-	ByteStream.prototype.readFloat16 = function() {
+	ByteInput.prototype.readFloat16 = function() {
 		const t = this.dataView.getUint8(this._position++);
 		let e = 0;
 		return e |= this.dataView.getUint8(this._position++) << 8, e |= t << 0, e;
 	}
-	ByteStream.prototype.readFloat32 = function() {
+	ByteInput.prototype.readFloat32 = function() {
 		var t = this.dataView.getUint8(this._position++);
 		var e = this.dataView.getUint8(this._position++);
 		var s = this.dataView.getUint8(this._position++);
@@ -426,7 +396,7 @@ var PinkFie = (function() {
 		const i = a >> 23 & 255;
 		return a && 2147483648 !== a ? (2147483648 & a ? -1 : 1) * (8388608 | 8388607 & a) * Math.pow(2, i - 127 - 23) : 0;
 	}
-	ByteStream.prototype.readFloat64 = function() {
+	ByteInput.prototype.readFloat64 = function() {
 		var upperBits = this.readUint32();
 		var lowerBits = this.readUint32();
 		var sign = upperBits >>> 31 & 0x1;
@@ -434,22 +404,23 @@ var PinkFie = (function() {
 		var upperFraction = upperBits & 0xFFFFF;
 		return (!upperBits && !lowerBits) ? 0 : ((sign === 0) ? 1 : -1) * (upperFraction / 1048576 + lowerBits / 4503599627370496 + 1) * Math.pow(2, exp - 1023);
 	}
-	ByteStream.prototype.readDouble = function() {
+	ByteInput.prototype.readDouble = function() {
 		var v = this.dataView.getFloat64(this._position, this.littleEndian);
 		this._position += 8;
 		return v;
 	}
-	ByteStream.prototype.readEncodedU32 = function() {
+	ByteInput.prototype.readEncodedU32 = function() {
 		this.byteAlign();
-		let t = 0;
+		let val = 0;
 		for (let e = 0; 5 > e; ++e) {
-			const s = this.dataView.getUint8(this._position++);
-			if (t |= (127 & s) << 7 * e, !(128 & s)) break;
+			let byte = this.dataView.getUint8(this._position++);
+			val |= (127 & byte) << 7 * e;
+			if ((128 & byte) == 0) break;
 		}
-		return t;
+		return val;
 	}
-		//////// BitReader ////////
-	ByteStream.prototype.byteCarry = function() {
+	//////// BitReader ////////
+	ByteInput.prototype.byteCarry = function() {
 		if (this.bit_offset > 7) {
 			this._position += ((this.bit_offset + 7) / 8) | 0;
 			this.bit_offset &= 0x07;
@@ -460,240 +431,207 @@ var PinkFie = (function() {
 			}
 		}
 	}
-	ByteStream.prototype.readUB = function(n) {
+	ByteInput.prototype.readUB = function(n) {
 		var value = 0;
-		while (n--) {
-			value <<= 1;
-			value |= this.readBit();
-		}
+		while (n--) value <<= 1, value |= this.readBit();
 		return value;
 	}
-	ByteStream.prototype.readSB = function(n) {
+	ByteInput.prototype.readSB = function(n) {
 		var uval = this.readUB(n);
 		var shift = 32 - n;
-		uval = (uval << shift) >> shift;
-		return uval;
+		return (uval << shift) >> shift;
 	}
-	ByteStream.prototype.readBit = function() {
+	ByteInput.prototype.readBit = function() {
 		this.byteCarry();
 		return (this.dataView.getUint8(this._position) >> (7 - this.bit_offset++)) & 0x1;
 	}
-	ByteStream.prototype.readSBFixed8 = function(n) {
+	ByteInput.prototype.readSBFixed8 = function(n) {
 		return +(this.readSB(n) / 0x100).toFixed(2);
 	}
-	ByteStream.prototype.readSBFixed16 = function(n) {
+	ByteInput.prototype.readSBFixed16 = function(n) {
 		return +(this.readSB(n) / 0x10000).toFixed(4);
-	}
-	const ZLibDecompress = function(data, size, startOffset) {
-
-		const fixedDistTable = {
-			key: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
-			value: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
-		}
-		const fixedLitTable = {
-			key: [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-			value: [256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 280, 281, 282, 283, 284, 285, 286, 287, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
-		}
-		const ORDER = new Uint8Array([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
-		const LEXT = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0, 99, 99]);
-		const LENS = new Uint16Array([3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0]);
-		const DEXT = new Uint8Array([0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]);
-		const DISTS = new Uint16Array([ 1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577]);
-
-		const stream = new Uint8Array(data);
-		const _data = new Uint8Array(size);
-		let _size = (startOffset || 0);
-		let byte_offset = _size + 2;
-		let bit_offset = 8;
-		let bit_buffer = null;
-
-		function readNumber(n) {
-			let value = 0;
-			let o = byte_offset;
-			let i = o + n;
-			while (i > o) {
-				value = (value << 8) | stream[--i];
-			}
-			byte_offset += n;
-			return value;
-		}
-		function readUB(length) {
-			let value = 0;
-			for (let i = 0; i < length; i++) {
-				if (bit_offset === 8) {
-					bit_buffer = readNumber(1);
-					bit_offset = 0;
-				}
-				value |= (bit_buffer & (1 << bit_offset++) ? 1 : 0) << i;
-			}
-			return value;
-		}
-		function buildHuffTable(data) {
-			const length = data.length;
-			const blCount = [];
-			const nextCode = [];
-			let maxBits = 0;
-			let i = length;
-			let len = 0;
-			while (i--) {
-				len = data[i];
-				maxBits = Math.max(maxBits, len);
-				blCount[len] = (blCount[len] || 0) + (len > 0);
-			}
-			let code = 0;
-			for (i = 0; i < maxBits; i++) {
-				len = i;
-				if (!(len in blCount)) {
-					blCount[len] = 0;
-				}
-				code = (code + blCount[len]) << 1;
-				nextCode[i + 1] = code | 0;
-			}
-			let key = [];
-			let value = [];
-			for (i = 0; i < length; i++) {
-				len = data[i];
-				if (len) {
-					const tt = nextCode[len];
-					key[tt] = len;
-					value[tt] = i;
-					nextCode[len] = tt + 1 | 0;
-				}
-			}
-			return { key, value };
-		}
-		function decodeSymbol(key, value) {
-			let len = 0;
-			let code = 0;
-			while (true) {
-				code = (code << 1) | readUB(1);
-				len++;
-				if (!(code in key)) {
-					continue;
-				}
-				if (key[code] === len) {
-					return value[code];
-				}
-			}
-		}
-
-		let sym = 0;
-		let i = 0;
-		let length = 0;
-		let flag = 0;
-
-		while (true) {
-			flag = readUB(1);
-			let type = readUB(2);
-			let distTable = null;
-			let litTable = null;
-			switch (type) {
-				case 0:
-					bit_offset = 8;
-					bit_buffer = null;
-					length = readNumber(2);
-					readNumber(2);
-					while (length--) {
-						_data[_size++] = readNumber(1);
-					}
-					break;
-				default:
-					switch (type) {
-						case 1:
-							distTable = fixedDistTable;
-							litTable = fixedLitTable;
-							break;
-						default:
-							const numLitLengths = readUB(5) + 257;
-							const numDistLengths = readUB(5) + 1;
-							const numCodeLengths = readUB(4) + 4;
-							var codeLengths = new Uint8Array(19);
-							for (i = 0; i < numCodeLengths; i++) {
-								codeLengths[ORDER[i]] = readUB(3);
-							}
-							const codeTable = buildHuffTable(codeLengths);
-							codeLengths = null;
-							var prevCodeLen = 0;
-							const maxLengths = numLitLengths + numDistLengths;
-							const litLengths = new Array(maxLengths);
-							let litLengthSize = 0;
-							while (litLengthSize < maxLengths) {
-								sym = decodeSymbol(codeTable.key, codeTable.value);
-								switch (sym) {
-									case 0:
-									case 1:
-									case 2:
-									case 3:
-									case 4:
-									case 5:
-									case 6:
-									case 7:
-									case 8:
-									case 9:
-									case 10:
-									case 11:
-									case 12:
-									case 13:
-									case 14:
-									case 15:
-										litLengths[litLengthSize++] = sym;
-										prevCodeLen = sym;
-										break;
-									case 16:
-										i = readUB(2) + 3;
-										while (i--) {
-											litLengths[litLengthSize++] = prevCodeLen;
-										}
-										break;
-									case 17:
-										i = readUB(3) + 3;
-										while (i--) {
-											litLengths[litLengthSize++] = 0;
-										}
-										break;
-									case 18:
-										i = readUB(7) + 11;
-										while (i--) {
-											litLengths[litLengthSize++] = 0;
-										}
-										break;
-								}
-							}
-							distTable = buildHuffTable(litLengths.splice(numLitLengths, numDistLengths));
-							litTable = buildHuffTable(litLengths);
-					}
-					sym = 0;
-					while (true) {
-						sym = (0 | decodeSymbol(litTable.key, litTable.value));
-						if (256 === sym) break;
-						if (sym < 256) {
-							_data[_size++] = sym;
-						} else {
-							const mapIdx = sym - 257 | 0;
-							length = LENS[mapIdx] + readUB(LEXT[mapIdx]) | 0;
-							const distMap = decodeSymbol(distTable.key, distTable.value);
-							i = _size - (DISTS[distMap] + readUB(DEXT[distMap]) | 0) | 0;
-							while (length--) {
-								_data[_size++] = _data[i++];
-							}
-						}
-					}
-			}
-			if (flag) break;
-		}
-		return _data.buffer;
 	}
 	const ZLib = {
 		decompress: function(arrayBuffer, uncompressedSizesize, startOffset) {
-			return ZLibDecompress(arrayBuffer, uncompressedSizesize, startOffset || 0);
+			const fixedDistTable = {
+				key: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+				value: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+			}, fixedLitTable = {
+				key: [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+				value: [256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 280, 281, 282, 283, 284, 285, 286, 287, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
+			}, ORDER = new Uint8Array([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]), LEXT = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0, 99, 99]), LENS = new Uint16Array([3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0]), DEXT = new Uint8Array([0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]), DISTS = new Uint16Array([ 1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577]), stream = new Uint8Array(arrayBuffer), _data = new Uint8Array(uncompressedSizesize);
+			var _size = (startOffset || 0), byte_offset = _size + 2, bit_offset = 8, bit_buffer = null;
+			const readNumber = function(n) {
+				let a = 0, o = byte_offset, i = o + n;
+				while (i > o) a = (a << 8) | stream[--i];
+				byte_offset += n;
+				return a;
+			}
+			const readUB = function(length) {
+				let value = 0;
+				for (let i = 0; i < length; i++) {
+					if (bit_offset === 8) {
+						bit_buffer = readNumber(1);
+						bit_offset = 0;
+					}
+					value |= (bit_buffer & (1 << bit_offset++) ? 1 : 0) << i;
+				}
+				return value;
+			}
+			const buildHuffTable = function(data) {
+				const length = data.length;
+				const blCount = [];
+				const nextCode = [];
+				let maxBits = 0;
+				let i = length;
+				let len = 0;
+				while (i--) {
+					len = data[i];
+					maxBits = Math.max(maxBits, len);
+					blCount[len] = (blCount[len] || 0) + (len > 0);
+				}
+				let code = 0;
+				for (i = 0; i < maxBits; i++) {
+					len = i;
+					if (!(len in blCount)) blCount[len] = 0;
+					code = (code + blCount[len]) << 1;
+					nextCode[i + 1] = code | 0;
+				}
+				const key = [];
+				const value = [];
+				for (i = 0; i < length; i++) {
+					len = data[i];
+					if (len) {
+						const tt = nextCode[len];
+						key[tt] = len;
+						value[tt] = i;
+						nextCode[len] = tt + 1 | 0;
+					}
+				}
+				return { key, value };
+			}
+			const decodeSymbol = function(key, value) {
+				let len = 0;
+				let code = 0;
+				while (true) {
+					code = (code << 1) | readUB(1);
+					len++;
+					if (!(code in key)) continue;
+					if (key[code] === len) return value[code];
+				}
+			}
+			var sym = 0, i = 0, length = 0, flag = 0;
+			const codeLengths = new Uint8Array(19);
+			while (!flag) {
+				flag = readUB(1);
+				let type = readUB(2);
+				let distTable = null;
+				let litTable = null;
+				switch (type) {
+					case 0:
+						bit_offset = 8;
+						bit_buffer = null;
+						length = readNumber(2);
+						readNumber(2);
+						while (length--) _data[_size++] = readNumber(1);
+						break;
+					default:
+						switch (type) {
+							case 1:
+								distTable = fixedDistTable;
+								litTable = fixedLitTable;
+								break;
+							default:
+								const numLitLengths = readUB(5) + 257;
+								const numDistLengths = readUB(5) + 1;
+								const numCodeLengths = readUB(4) + 4;
+								for (i = 0; i < numCodeLengths; i++) codeLengths[ORDER[i]] = readUB(3);
+								const codeTable = buildHuffTable(codeLengths);
+								codeLengths.fill(0);
+								var prevCodeLen = 0;
+								const maxLengths = numLitLengths + numDistLengths;
+								const litLengths = new Uint8Array(maxLengths);
+								let litLengthSize = 0;
+								while (litLengthSize < maxLengths) {
+									sym = decodeSymbol(codeTable.key, codeTable.value);
+									switch (sym) {
+										case 0:
+										case 1:
+										case 2:
+										case 3:
+										case 4:
+										case 5:
+										case 6:
+										case 7:
+										case 8:
+										case 9:
+										case 10:
+										case 11:
+										case 12:
+										case 13:
+										case 14:
+										case 15:
+											litLengths[litLengthSize++] = sym;
+											prevCodeLen = sym;
+											break;
+										case 16:
+											i = readUB(2) + 3;
+											litLengths.fill(prevCodeLen, litLengthSize, litLengthSize + i);
+											litLengthSize += i;
+											break;
+										case 17:
+											i = readUB(3) + 3;
+											litLengthSize += i;
+											break;
+										case 18:
+											i = readUB(7) + 11;
+											litLengthSize += i;
+											break;
+									}
+								}
+								distTable = buildHuffTable(litLengths.subarray(numLitLengths));
+								litTable = buildHuffTable(litLengths.subarray(0, numLitLengths));
+						}
+						sym = 0;
+						while (true) {
+							sym = (0 | decodeSymbol(litTable.key, litTable.value));
+							if (256 === sym) break;
+							if (sym < 256) {
+								_data[_size++] = sym;
+							} else {
+								const mapIdx = sym - 257 | 0;
+								length = LENS[mapIdx] + readUB(LEXT[mapIdx]) | 0;
+								const distMap = decodeSymbol(distTable.key, distTable.value);
+								i = _size - (DISTS[distMap] + readUB(DEXT[distMap]) | 0) | 0;
+								while (length--) _data[_size++] = _data[i++];
+							}
+						}
+				}
+			}
+			return _data.buffer;
 		}
 	}
-	const LZMA = (function() {
-		function __init(e) {const t = [];t.push(e[12], e[13], e[14], e[15], e[16], e[4], e[5], e[6], e[7]);let s = 8;for (let e = 5; e < 9; ++e) {if (t[e] >= s) {t[e] = t[e] - s | 0;break}t[e] = 256 + t[e] - s | 0,s = 1}return t.push(0, 0, 0, 0), e.set(t, 4),e.subarray(4)};function __reverseDecode2(e, t, s, i) {let r = 1, o = 0, d = 0;for (; d < i; ++d) {const i = s.decodeBit(e, t + r);r = r << 1 | i,o |= i << d}return o};function __decompress(e, t) {const s = new Decoder, i = s.decodeHeader(e), r = i.uncompressedSize;if (s.setProperties(i),!s.decodeBody(e, t, r))throw new Error("Error in lzma data stream");return t};const OutWindow = function() {this._buffer = null,this._stream = null,this._pos = 0,this._streamPos = 0,this._windowSize = 0};OutWindow.prototype.create = function(e) {this._buffer && this._windowSize === e || (this._buffer = new Uint8Array(e)),this._windowSize = e};OutWindow.prototype.flush = function() {const e = this._pos - this._streamPos;e && (this._stream.writeBytes(this._buffer, e),this._pos >= this._windowSize && (this._pos = 0),this._streamPos = this._pos)};OutWindow.prototype.releaseStream = function() {this.flush(),this._stream = null};OutWindow.prototype.setStream = function(e) {this._stream = e};OutWindow.prototype.init = function(e=!1) {e || (this._streamPos = 0,this._pos = 0)};OutWindow.prototype.copyBlock = function(e, t) {let s = this._pos - e - 1;for (s < 0 && (s += this._windowSize); t--; )s >= this._windowSize && (s = 0),this._buffer[this._pos++] = this._buffer[s++],this._pos >= this._windowSize && this.flush()};OutWindow.prototype.putByte = function(e) {this._buffer[this._pos++] = e,this._pos >= this._windowSize && this.flush()};OutWindow.prototype.getByte = function(e) {let t = this._pos - e - 1;return t < 0 && (t += this._windowSize),this._buffer[t]};const RangeDecoder = function() {this._stream = null,this._code = 0,this._range = -1};RangeDecoder.prototype.setStream = function(e) {this._stream = e};RangeDecoder.prototype.releaseStream = function() {this._stream = null};RangeDecoder.prototype.init = function() {let e = 5;for (this._code = 0,this._range = -1; e--; ) this._code = this._code << 8 | this._stream.readByte()};RangeDecoder.prototype.decodeDirectBits = function(e) {let t = 0, s = e;for (; s--; ) {this._range >>>= 1;const e = this._code - this._range >>> 31;this._code -= this._range & e - 1,t = t << 1 | 1 - e,0 == (4278190080 & this._range) && (this._code = this._code << 8 | this._stream.readByte(),this._range <<= 8)}return t};RangeDecoder.prototype.decodeBit = function(e, t) {const s = e[t], i = (this._range >>> 11) * s;return (2147483648 ^ this._code) < (2147483648 ^ i) ? (this._range = i,e[t] += 2048 - s >>> 5,0 == (4278190080 & this._range) && (this._code = this._code << 8 | this._stream.readByte(),this._range <<= 8),0) : (this._range -= i,this._code -= i,e[t] -= s >>> 5,0 == (4278190080 & this._range) && (this._code = this._code << 8 | this._stream.readByte(),this._range <<= 8),1)};const BitTreeDecoder = function(e) {this._models = Array(1 << e).fill(1024),this._numBitLevels = e};BitTreeDecoder.prototype.decode = function(e) {let t = 1, s = this._numBitLevels;for (; s--; )t = t << 1 | e.decodeBit(this._models, t);return t - (1 << this._numBitLevels)};BitTreeDecoder.prototype.reverseDecode = function(e) {let t = 1, s = 0, i = 0;for (; i < this._numBitLevels; ++i) {const r = e.decodeBit(this._models, t);t = t << 1 | r,s |= r << i}return s};const LenDecoder = function() {this._choice = [1024, 1024],this._lowCoder = [],this._midCoder = [],this._highCoder = new BitTreeDecoder(8),this._numPosStates = 0};LenDecoder.prototype.create = function(e) {for (; this._numPosStates < e; ++this._numPosStates) this._lowCoder[this._numPosStates] = new BitTreeDecoder(3),this._midCoder[this._numPosStates] = new BitTreeDecoder(3)};LenDecoder.prototype.decode = function(e, t) {return 0 === e.decodeBit(this._choice, 0) ? this._lowCoder[t].decode(e) : 0 === e.decodeBit(this._choice, 1) ? 8 + this._midCoder[t].decode(e) : 16 + this._highCoder.decode(e)};const Decoder2 = function() {this._decoders = Array(768).fill(1024)};Decoder2.prototype.decodeNormal = function(e) {let t = 1;do {t = t << 1 | e.decodeBit(this._decoders, t)} while (t < 256);return 255 & t};Decoder2.prototype.decodeWithMatchByte = function(e, t) {let s = 1;do {const i = t >> 7 & 1;t <<= 1;const r = e.decodeBit(this._decoders, (1 + i << 8) + s);if (s = s << 1 | r,i !== r) {for (; s < 256; )s = s << 1 | e.decodeBit(this._decoders, s);break}} while (s < 256);return 255 & s};const LiteralDecoder = function() {};LiteralDecoder.prototype.create = function(e, t) {if (this._coders && this._numPrevBits === t && this._numPosBits === e) return;this._numPosBits = e,this._posMask = (1 << e) - 1,this._numPrevBits = t,this._coders = [];let s = 1 << this._numPrevBits + this._numPosBits;for (; s--; )this._coders[s] = new Decoder2};LiteralDecoder.prototype.getDecoder = function(e, t) {return this._coders[((e & this._posMask) << this._numPrevBits) + ((255 & t) >>> 8 - this._numPrevBits)]};const Decoder = function() {this._outWindow = new OutWindow,this._rangeDecoder = new RangeDecoder,this._isMatchDecoders = Array(192).fill(1024),this._isRepDecoders = Array(12).fill(1024),this._isRepG0Decoders = Array(12).fill(1024),this._isRepG1Decoders = Array(12).fill(1024),this._isRepG2Decoders = Array(12).fill(1024),this._isRep0LongDecoders = Array(192).fill(1024),this._posDecoders = Array(114).fill(1024),this._posAlignDecoder = new BitTreeDecoder(4),this._lenDecoder = new LenDecoder,this._repLenDecoder = new LenDecoder,this._literalDecoder = new LiteralDecoder,this._dictionarySize = -1,this._dictionarySizeCheck = -1,this._posSlotDecoder = [new BitTreeDecoder(6), new BitTreeDecoder(6), new BitTreeDecoder(6), new BitTreeDecoder(6)]};Decoder.prototype.setDictionarySize = function(e) {return !(e < 0) && (this._dictionarySize !== e && (this._dictionarySize = e,this._dictionarySizeCheck = Math.max(this._dictionarySize, 1),this._outWindow.create(Math.max(this._dictionarySizeCheck, 4096))),!0)};Decoder.prototype.setLcLpPb = function(e, t, s) {if (e > 8 || t > 4 || s > 4)return !1;const i = 1 << s;return this._literalDecoder.create(t, e),this._lenDecoder.create(i),this._repLenDecoder.create(i),this._posStateMask = i - 1,!0};Decoder.prototype.setProperties = function(e) {if (!this.setLcLpPb(e.lc, e.lp, e.pb))throw Error("Incorrect stream properties");if (!this.setDictionarySize(e.dictionarySize))throw Error("Invalid dictionary size")};Decoder.prototype.decodeHeader = function(e) {if (e._$size < 13)return !1;let t = e.readByte();const s = t % 9;t = ~~(t / 9);const i = t % 5, r = ~~(t / 5);let o = e.readByte();o |= e.readByte() << 8,o |= e.readByte() << 16,o += 16777216 * e.readByte();let d = e.readByte();return d |= e.readByte() << 8,d |= e.readByte() << 16,d += 16777216 * e.readByte(),e.readByte(),e.readByte(),e.readByte(),e.readByte(),{lc: s,lp: i,pb: r,dictionarySize: o,uncompressedSize: d}};Decoder.prototype.decodeBody = function(e, t, s) {let i, r, o = 0, d = 0, h = 0, c = 0, n = 0, _ = 0, a = 0;for (this._rangeDecoder.setStream(e),this._rangeDecoder.init(),this._outWindow.setStream(t),this._outWindow.init(!1); _ < s; ) {const e = _ & this._posStateMask;if (0 === this._rangeDecoder.decodeBit(this._isMatchDecoders, (o << 4) + e)) {const e = this._literalDecoder.getDecoder(_++, a);a = o >= 7 ? e.decodeWithMatchByte(this._rangeDecoder, this._outWindow.getByte(d)) : e.decodeNormal(this._rangeDecoder),this._outWindow.putByte(a),o = o < 4 ? 0 : o - (o < 10 ? 3 : 6)} else {if (1 === this._rangeDecoder.decodeBit(this._isRepDecoders, o))i = 0,0 === this._rangeDecoder.decodeBit(this._isRepG0Decoders, o) ? 0 === this._rangeDecoder.decodeBit(this._isRep0LongDecoders, (o << 4) + e) && (o = o < 7 ? 9 : 11,i = 1) : (0 === this._rangeDecoder.decodeBit(this._isRepG1Decoders, o) ? r = h : (0 === this._rangeDecoder.decodeBit(this._isRepG2Decoders, o) ? r = c : (r = n,n = c),c = h),h = d,d = r),0 === i && (i = 2 + this._repLenDecoder.decode(this._rangeDecoder, e),o = o < 7 ? 8 : 11);else {n = c,c = h,h = d,i = 2 + this._lenDecoder.decode(this._rangeDecoder, e),o = o < 7 ? 7 : 10;const t = this._posSlotDecoder[i <= 5 ? i - 2 : 3].decode(this._rangeDecoder);if (t >= 4) {const e = (t >> 1) - 1;if (d = (2 | 1 & t) << e,t < 14)d += __reverseDecode2(this._posDecoders, d - t - 1, this._rangeDecoder, e);else if (d += this._rangeDecoder.decodeDirectBits(e - 4) << 4,d += this._posAlignDecoder.reverseDecode(this._rangeDecoder),d < 0) {if (-1 === d)break;return !1}} else d = t}if (d >= _ || d >= this._dictionarySizeCheck)return !1;this._outWindow.copyBlock(d, i),_ += i,a = this._outWindow.getByte(0)}}return this._outWindow.releaseStream(),this._rangeDecoder.releaseStream(),!0};const InStream = function(e) {this._$data = e;this._$size = e.length;this._$offset = 0;};InStream.prototype.readByte = function() {return this._$data[this._$offset++];};const OutStream = function(e) {this.size = 8;this.buffers = e;};OutStream.prototype.writeBytes = function(e, t) {if (e.length === t) {this.buffers.set(e, this.size);} else {this.buffers.set(e.subarray(0, t), this.size);}this.size += t;};const LZMA = {parse: function (data, fileLength) {const t = fileLength,s = data,i = new Uint8Array(t + 8);i.set(s.slice(0, 8), 0);__decompress(new InStream(__init(s)), new OutStream(i));return i}};return LZMA
-	}());
+	/*
+	 * LZMA
+	 * 
+	 * credit to swf2js
+	 */
+	const LZMA = (function() {function __init(e) {const t = [];t.push(e[12], e[13], e[14], e[15], e[16], e[4], e[5], e[6], e[7]);let s = 8;for (let e = 5; e < 9; ++e) {if (t[e] >= s) {t[e] = t[e] - s | 0;break}t[e] = 256 + t[e] - s | 0,s = 1}return t.push(0, 0, 0, 0), e.set(t, 4),e.subarray(4)};function __reverseDecode2(e, t, s, i) {let r = 1, o = 0, d = 0;for (; d < i; ++d) {const i = s.decodeBit(e, t + r);r = r << 1 | i,o |= i << d}return o};function __decompress(e, t) {const s = new Decoder, i = s.decodeHeader(e), r = i.uncompressedSize;if (s.setProperties(i),!s.decodeBody(e, t, r))throw new Error("Error in lzma data stream");return t};const OutWindow = function() {this._buffer = null,this._stream = null,this._pos = 0,this._streamPos = 0,this._windowSize = 0};OutWindow.prototype.create = function(e) {this._buffer && this._windowSize === e || (this._buffer = new Uint8Array(e)),this._windowSize = e};OutWindow.prototype.flush = function() {const e = this._pos - this._streamPos;e && (this._stream.writeBytes(this._buffer, e),this._pos >= this._windowSize && (this._pos = 0),this._streamPos = this._pos)};OutWindow.prototype.releaseStream = function() {this.flush(),this._stream = null};OutWindow.prototype.setStream = function(e) {this._stream = e};OutWindow.prototype.init = function(e=!1) {e || (this._streamPos = 0,this._pos = 0)};OutWindow.prototype.copyBlock = function(e, t) {let s = this._pos - e - 1;for (s < 0 && (s += this._windowSize); t--; )s >= this._windowSize && (s = 0),this._buffer[this._pos++] = this._buffer[s++],this._pos >= this._windowSize && this.flush()};OutWindow.prototype.putByte = function(e) {this._buffer[this._pos++] = e,this._pos >= this._windowSize && this.flush()};OutWindow.prototype.getByte = function(e) {let t = this._pos - e - 1;return t < 0 && (t += this._windowSize),this._buffer[t]};const RangeDecoder = function() {this._stream = null,this._code = 0,this._range = -1};RangeDecoder.prototype.setStream = function(e) {this._stream = e};RangeDecoder.prototype.releaseStream = function() {this._stream = null};RangeDecoder.prototype.init = function() {let e = 5;for (this._code = 0,this._range = -1; e--; ) this._code = this._code << 8 | this._stream.readByte()};RangeDecoder.prototype.decodeDirectBits = function(e) {let t = 0, s = e;for (; s--; ) {this._range >>>= 1;const e = this._code - this._range >>> 31;this._code -= this._range & e - 1,t = t << 1 | 1 - e,0 == (4278190080 & this._range) && (this._code = this._code << 8 | this._stream.readByte(),this._range <<= 8)}return t};RangeDecoder.prototype.decodeBit = function(e, t) {const s = e[t], i = (this._range >>> 11) * s;return (2147483648 ^ this._code) < (2147483648 ^ i) ? (this._range = i,e[t] += 2048 - s >>> 5,0 == (4278190080 & this._range) && (this._code = this._code << 8 | this._stream.readByte(),this._range <<= 8),0) : (this._range -= i,this._code -= i,e[t] -= s >>> 5,0 == (4278190080 & this._range) && (this._code = this._code << 8 | this._stream.readByte(),this._range <<= 8),1)};const BitTreeDecoder = function(e) {this._models = Array(1 << e).fill(1024),this._numBitLevels = e};BitTreeDecoder.prototype.decode = function(e) {let t = 1, s = this._numBitLevels;for (; s--; )t = t << 1 | e.decodeBit(this._models, t);return t - (1 << this._numBitLevels)};BitTreeDecoder.prototype.reverseDecode = function(e) {let t = 1, s = 0, i = 0;for (; i < this._numBitLevels; ++i) {const r = e.decodeBit(this._models, t);t = t << 1 | r,s |= r << i}return s};const LenDecoder = function() {this._choice = [1024, 1024],this._lowCoder = [],this._midCoder = [],this._highCoder = new BitTreeDecoder(8),this._numPosStates = 0};LenDecoder.prototype.create = function(e) {for (; this._numPosStates < e; ++this._numPosStates) this._lowCoder[this._numPosStates] = new BitTreeDecoder(3),this._midCoder[this._numPosStates] = new BitTreeDecoder(3)};LenDecoder.prototype.decode = function(e, t) {return 0 === e.decodeBit(this._choice, 0) ? this._lowCoder[t].decode(e) : 0 === e.decodeBit(this._choice, 1) ? 8 + this._midCoder[t].decode(e) : 16 + this._highCoder.decode(e)};const Decoder2 = function() {this._decoders = Array(768).fill(1024)};Decoder2.prototype.decodeNormal = function(e) {let t = 1;do {t = t << 1 | e.decodeBit(this._decoders, t)} while (t < 256);return 255 & t};Decoder2.prototype.decodeWithMatchByte = function(e, t) {let s = 1;do {const i = t >> 7 & 1;t <<= 1;const r = e.decodeBit(this._decoders, (1 + i << 8) + s);if (s = s << 1 | r,i !== r) {for (; s < 256; )s = s << 1 | e.decodeBit(this._decoders, s);break}} while (s < 256);return 255 & s};const LiteralDecoder = function() {};LiteralDecoder.prototype.create = function(e, t) {if (this._coders && this._numPrevBits === t && this._numPosBits === e) return;this._numPosBits = e,this._posMask = (1 << e) - 1,this._numPrevBits = t,this._coders = [];let s = 1 << this._numPrevBits + this._numPosBits;for (; s--; )this._coders[s] = new Decoder2};LiteralDecoder.prototype.getDecoder = function(e, t) {return this._coders[((e & this._posMask) << this._numPrevBits) + ((255 & t) >>> 8 - this._numPrevBits)]};const Decoder = function() {this._outWindow = new OutWindow,this._rangeDecoder = new RangeDecoder,this._isMatchDecoders = Array(192).fill(1024),this._isRepDecoders = Array(12).fill(1024),this._isRepG0Decoders = Array(12).fill(1024),this._isRepG1Decoders = Array(12).fill(1024),this._isRepG2Decoders = Array(12).fill(1024),this._isRep0LongDecoders = Array(192).fill(1024),this._posDecoders = Array(114).fill(1024),this._posAlignDecoder = new BitTreeDecoder(4),this._lenDecoder = new LenDecoder,this._repLenDecoder = new LenDecoder,this._literalDecoder = new LiteralDecoder,this._dictionarySize = -1,this._dictionarySizeCheck = -1,this._posSlotDecoder = [new BitTreeDecoder(6), new BitTreeDecoder(6), new BitTreeDecoder(6), new BitTreeDecoder(6)]};Decoder.prototype.setDictionarySize = function(e) {return !(e < 0) && (this._dictionarySize !== e && (this._dictionarySize = e,this._dictionarySizeCheck = Math.max(this._dictionarySize, 1),this._outWindow.create(Math.max(this._dictionarySizeCheck, 4096))),!0)};Decoder.prototype.setLcLpPb = function(e, t, s) {if (e > 8 || t > 4 || s > 4)return !1;const i = 1 << s;return this._literalDecoder.create(t, e),this._lenDecoder.create(i),this._repLenDecoder.create(i),this._posStateMask = i - 1,!0};Decoder.prototype.setProperties = function(e) {if (!this.setLcLpPb(e.lc, e.lp, e.pb))throw Error("Incorrect stream properties");if (!this.setDictionarySize(e.dictionarySize))throw Error("Invalid dictionary size")};Decoder.prototype.decodeHeader = function(e) {if (e._$size < 13)return !1;let t = e.readByte();const s = t % 9;t = ~~(t / 9);const i = t % 5, r = ~~(t / 5);let o = e.readByte();o |= e.readByte() << 8,o |= e.readByte() << 16,o += 16777216 * e.readByte();let d = e.readByte();return d |= e.readByte() << 8,d |= e.readByte() << 16,d += 16777216 * e.readByte(),e.readByte(),e.readByte(),e.readByte(),e.readByte(),{lc: s,lp: i,pb: r,dictionarySize: o,uncompressedSize: d}};Decoder.prototype.decodeBody = function(e, t, s) {let i, r, o = 0, d = 0, h = 0, c = 0, n = 0, _ = 0, a = 0;for (this._rangeDecoder.setStream(e),this._rangeDecoder.init(),this._outWindow.setStream(t),this._outWindow.init(!1); _ < s; ) {const e = _ & this._posStateMask;if (0 === this._rangeDecoder.decodeBit(this._isMatchDecoders, (o << 4) + e)) {const e = this._literalDecoder.getDecoder(_++, a);a = o >= 7 ? e.decodeWithMatchByte(this._rangeDecoder, this._outWindow.getByte(d)) : e.decodeNormal(this._rangeDecoder),this._outWindow.putByte(a),o = o < 4 ? 0 : o - (o < 10 ? 3 : 6)} else {if (1 === this._rangeDecoder.decodeBit(this._isRepDecoders, o))i = 0,0 === this._rangeDecoder.decodeBit(this._isRepG0Decoders, o) ? 0 === this._rangeDecoder.decodeBit(this._isRep0LongDecoders, (o << 4) + e) && (o = o < 7 ? 9 : 11,i = 1) : (0 === this._rangeDecoder.decodeBit(this._isRepG1Decoders, o) ? r = h : (0 === this._rangeDecoder.decodeBit(this._isRepG2Decoders, o) ? r = c : (r = n,n = c),c = h),h = d,d = r),0 === i && (i = 2 + this._repLenDecoder.decode(this._rangeDecoder, e),o = o < 7 ? 8 : 11);else {n = c,c = h,h = d,i = 2 + this._lenDecoder.decode(this._rangeDecoder, e),o = o < 7 ? 7 : 10;const t = this._posSlotDecoder[i <= 5 ? i - 2 : 3].decode(this._rangeDecoder);if (t >= 4) {const e = (t >> 1) - 1;if (d = (2 | 1 & t) << e,t < 14)d += __reverseDecode2(this._posDecoders, d - t - 1, this._rangeDecoder, e);else if (d += this._rangeDecoder.decodeDirectBits(e - 4) << 4,d += this._posAlignDecoder.reverseDecode(this._rangeDecoder),d < 0) {if (-1 === d)break;return !1}} else d = t}if (d >= _ || d >= this._dictionarySizeCheck)return !1;this._outWindow.copyBlock(d, i),_ += i,a = this._outWindow.getByte(0)}}return this._outWindow.releaseStream(),this._rangeDecoder.releaseStream(),!0};const InStream = function(e) {this._$data = e;this._$size = e.length;this._$offset = 0;};InStream.prototype.readByte = function() {return this._$data[this._$offset++];};const OutStream = function(e) {this.size = 8;this.buffers = e;};OutStream.prototype.writeBytes = function(e, t) {if (e.length === t) {this.buffers.set(e, this.size);} else {this.buffers.set(e.subarray(0, t), this.size);}this.size += t;};const LZMA = {parse: function (data, fileLength) {const t = fileLength,s = data,i = new Uint8Array(t + 8);i.set(s.slice(0, 8), 0);__decompress(new InStream(__init(s)), new OutStream(i));return i}};return LZMA}());
+	/*
+	 * Nellymoser JS
+	 * 
+	 * A pure Javascript for the Nellymoser audio codec.
+	 * 
+	 * credit to JPEXS
+	 * 
+	 * (c) 2024 ATFSMedia Productions.
+	 * 
+	 * Made in Peru
+	 */
+	const ATNellymoser = (function() {const _1 = function() {this.bytePos = 0, this.bitPos = 0};_1.prototype.push = function(val, len, buf) {if (this.bitPos == 0) buf[this.bytePos] = val;else buf[this.bytePos] |= val << this.bitPos;this.bitPos += len;if (this.bitPos >= 8) {this.bytePos++;this.bitPos -= 8;if (this.bitPos > 0) buf[this.bytePos] = (val >> (len - this.bitPos));}},_1.prototype.pop = function(a, b) {let c = (b[this.bytePos] & 0xff) >> this.bitPos, d = 8 - this.bitPos;if (a >= d) {this.bytePos++;if (a > d) c |= b[this.bytePos] << d;};this.bitPos = (this.bitPos + a) & 7;return c & ((1 << a) - 1);};const _2 = function(a) {this.value = 0,this.scale = 0;if (a == 0) {this.value = a, this.scale = 31;return} else if (a >= (1 << 30)) {this.value = 0, this.scale = 0;return}let v = a, s = 0;if (v > 0) {do v <<= 1, ++s;while (v < (1 << 30));} else {let b = 1 << 31;do v <<= 1, ++s;while (v > b + (1 << 30));};this.value = v, this.scale = s}, _o1 = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 37, 43, 49, 56, 64, 73, 83, 95, 109, 124], _o2 = [6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0], _t0 = [2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 8, 9, 10, 12, 14, 15, 0], _t1 = [3134, 5342, 6870, 7792, 8569, 9185, 9744, 10191, 10631, 11061, 11434, 11770, 12116, 12513, 12925, 13300, 13674, 14027, 14352, 14716, 15117, 15477, 15824, 16157, 16513, 16804, 17090, 17401, 17679, 17948, 18238, 18520, 18764, 19078, 19381, 19640, 19921, 20205, 20500, 20813, 21162, 21465, 21794, 22137, 22453, 22756, 23067, 23350, 23636, 23926, 24227, 24521, 24819, 25107, 25414, 25730, 26120, 26497, 26895, 27344, 27877, 28463, 29426, 31355], _t2 = [-11725, -9420, -7910, -6801, -5948, -5233, -4599, -4039, -3507, -3030, -2596, -2170, -1774, -1383, -1016, -660, -329, -1, 337, 696, 1085, 1512, 1962, 2433, 2968, 3569, 4314, 5279, 6622, 8154, 10076, 12975], _t3 = [0, -0.847256005, 0.722470999, -1.52474797, -0.453148007, 0.375360996, 1.47178996, -1.98225796, -1.19293797, -0.582937002, -0.0693780035, 0.390956998, 0.906920016, 1.486274, 2.22154093, -2.38878703, -1.80675399, -1.41054201, -1.07736099, -0.799501002, -0.555810988, -0.333402008, -0.132449001, 0.0568020009, 0.254877001, 0.477355003, 0.738685012, 1.04430604, 1.39544594, 1.80987501, 2.39187598, -2.38938308, -1.98846805, -1.75140405, -1.56431198, -1.39221299, -1.216465, -1.04694998, -0.890510023, -0.764558017, -0.645457983, -0.52592802, -0.405954987, -0.302971989, -0.209690005, -0.123986997, -0.0479229987, 0.025773, 0.100134, 0.173718005, 0.258554012, 0.352290004, 0.456988007, 0.576775014, 0.700316012, 0.842552006, 1.00938797, 1.18213499, 1.35345602, 1.53208196, 1.73326194, 1.97223496, 2.39781404, -2.5756309, -2.05733204, -1.89849198, -1.77278101, -1.66626, -1.57421803, -1.49933195, -1.43166399, -1.36522806, -1.30009902, -1.22809303, -1.15885794, -1.09212506, -1.013574, -0.920284986, -0.828705013, -0.737488985, -0.644775987, -0.559094012, -0.485713989, -0.411031991, -0.345970005, -0.285115987, -0.234162003, -0.187058002, -0.144250005, -0.110716999, -0.0739680007, -0.0365610011, -0.00732900016, 0.0203610007, 0.0479039997, 0.0751969963, 0.0980999991, 0.122038998, 0.145899996, 0.169434994, 0.197045997, 0.225243002, 0.255686998, 0.287010014, 0.319709986, 0.352582991, 0.388906986, 0.433492005, 0.476945996, 0.520482004, 0.564453006, 0.612204015, 0.668592989, 0.734165013, 0.803215981, 0.878404021, 0.956620991, 1.03970695, 1.12937701, 1.22111595, 1.30802798, 1.40248001, 1.50568199, 1.62277305, 1.77249599, 1.94308805, 2.29039311, 0], _t4 = [0.999981225, 0.999529421, 0.998475611, 0.996820271, 0.994564593, 0.991709828, 0.988257587, 0.984210074, 0.979569793, 0.974339426, 0.968522072, 0.962121427, 0.955141187, 0.947585583, 0.939459205, 0.930767, 0.921513975, 0.911705971, 0.901348829, 0.890448689, 0.879012227, 0.867046177, 0.854557991, 0.841554999, 0.828045011, 0.81403631, 0.799537301, 0.784556627, 0.769103289, 0.753186822, 0.736816585, 0.720002472, 0.702754676, 0.685083687, 0.666999876, 0.64851439, 0.629638195, 0.610382795, 0.590759695, 0.570780694, 0.550458014, 0.529803574, 0.50883007, 0.487550199, 0.465976506, 0.444122106, 0.422000289, 0.399624199, 0.377007395, 0.354163498, 0.331106305, 0.307849586, 0.284407496, 0.260794103, 0.237023607, 0.213110298, 0.189068705, 0.164913103, 0.1406582, 0.116318598, 0.0919089988, 0.0674438998, 0.0429382995, 0.0184067003], _t5 = [0.125, 0.124962397, 0.124849401, 0.124661297, 0.124398097, 0.124059901, 0.123647101, 0.123159699, 0.122598201, 0.121962801, 0.1212539, 0.120471999, 0.119617499, 0.118690997, 0.117693, 0.116624102, 0.115484901, 0.114276201, 0.112998702, 0.111653, 0.110240199, 0.108760901, 0.107216097, 0.105606697, 0.103933699, 0.102198102, 0.100400902, 0.0985433012, 0.0966262966, 0.094651103, 0.0926188976, 0.0905309021, 0.0883883014, 0.0861926004, 0.0839449018, 0.0816465989, 0.0792991966, 0.076903902, 0.0744623989, 0.0719759986, 0.069446303, 0.0668746978, 0.0642627999, 0.0616123006, 0.0589246005, 0.0562013984, 0.0534444004, 0.0506552011, 0.0478353985, 0.0449868999, 0.0421111993, 0.0392102003, 0.0362856016, 0.0333391018, 0.0303725004, 0.0273876991, 0.0243862998, 0.0213702004, 0.0183412991, 0.0153013002, 0.0122520998, 0.0091955997, 0.00613350002, 0.00306769996], _t6 = [-0.00613590004, -0.0306748003, -0.0551952012, -0.0796824023, -0.104121603, -0.128498107, -0.152797207, -0.177004203, -0.201104596, -0.225083902, -0.248927593, -0.272621393, -0.296150893, -0.319501996, -0.342660695, -0.365613014, -0.388345003, -0.410843194, -0.433093786, -0.455083609, -0.47679919, -0.498227686, -0.519356012, -0.540171504, -0.560661614, -0.580814004, -0.600616515, -0.620057225, -0.639124393, -0.657806695, -0.676092684, -0.693971515, -0.711432219, -0.728464425, -0.745057821, -0.761202395, -0.77688849, -0.792106628, -0.806847572, -0.8211025, -0.834862888, -0.848120272, -0.860866904, -0.873094976, -0.884797096, -0.895966172, -0.906595707, -0.916679084, -0.926210225, -0.935183525, -0.943593502, -0.95143503, -0.958703518, -0.965394378, -0.971503913, -0.977028072, -0.981963873, -0.986308098, -0.990058184, -0.993211925, -0.995767415, -0.997723103, -0.999077678, -0.999830604], _t7 = [0.00613590004, 0.0184067003, 0.0306748003, 0.0429382995, 0.0551952012, 0.0674438998, 0.0796824023, 0.0919089988, 0.104121603, 0.116318598, 0.128498107, 0.1406582, 0.152797207, 0.164913103, 0.177004203, 0.189068705, 0.201104596, 0.213110298, 0.225083902, 0.237023607, 0.248927593, 0.260794103, 0.272621393, 0.284407496, 0.296150893, 0.307849586, 0.319501996, 0.331106305, 0.342660695, 0.354163498, 0.365613014, 0.377007395, 0.388345003, 0.399624199, 0.410843194, 0.422000289, 0.433093786, 0.444122106, 0.455083609, 0.465976506, 0.47679919, 0.487550199, 0.498227686, 0.50883007, 0.519356012, 0.529803574, 0.540171504, 0.550458014, 0.560661614, 0.570780694, 0.580814004, 0.590759695, 0.600616515, 0.610382795, 0.620057225, 0.629638195, 0.639124393, 0.64851439, 0.657806695, 0.666999876, 0.676092684, 0.685083687, 0.693971515, 0.702754676, 0.711432219, 0.720002472, 0.728464425, 0.736816585, 0.745057821, 0.753186822, 0.761202395, 0.769103289, 0.77688849, 0.784556627, 0.792106628, 0.799537301, 0.806847572, 0.81403631, 0.8211025, 0.828045011, 0.834862888, 0.841554999, 0.848120272, 0.854557991, 0.860866904, 0.867046177, 0.873094976, 0.879012227, 0.884797096, 0.890448689, 0.895966172, 0.901348829, 0.906595707, 0.911705971, 0.916679084, 0.921513975, 0.926210225, 0.930767, 0.935183525, 0.939459205, 0.943593502, 0.947585583, 0.95143503, 0.955141187, 0.958703518, 0.962121427, 0.965394378, 0.968522072, 0.971503913, 0.974339426, 0.977028072, 0.979569793, 0.981963873, 0.984210074, 0.986308098, 0.988257587, 0.990058184, 0.991709828, 0.993211925, 0.994564593, 0.995767415, 0.996820271, 0.997723103, 0.998475611, 0.999077678, 0.999529421, 0.999830604, 0.999981225], _t8 = [32767, 30840, 29127, 27594, 26214, 24966, 23831, 22795, 21845, 20972, 20165, 19418, 18725, 18079, 17476, 16913, 16384, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], _t9 = [0, 0.0122715384, 0.024541229, 0.0368072242, 0.0490676723, 0.061320737, 0.0735645667, 0.0857973099, 0.0980171412, 0.110222213, 0.122410677, 0.134580716, 0.146730468, 0.158858135, 0.170961887, 0.183039889, 0.195090324, 0.207111374, 0.219101235, 0.231058106, 0.242980182, 0.254865646, 0.266712755, 0.27851969, 0.290284693, 0.302005947, 0.313681751, 0.32531029, 0.336889863, 0.348418683, 0.359895051, 0.371317178, 0.382683426, 0.393992037, 0.405241311, 0.416429549, 0.427555084, 0.438616246, 0.449611336, 0.460538715, 0.471396744, 0.482183784, 0.492898196, 0.50353837, 0.514102757, 0.524589658, 0.534997642, 0.545324981, 0.555570245, 0.565731823, 0.575808167, 0.585797846, 0.59569931, 0.605511069, 0.615231574, 0.624859512, 0.634393275, 0.643831551, 0.653172851, 0.662415802, 0.671558976, 0.680601001, 0.689540565, 0.698376238, 0.707106769, 0.715730846, 0.724247098, 0.732654274, 0.740951121, 0.749136388, 0.757208824, 0.765167296, 0.773010433, 0.780737221, 0.78834641, 0.795836926, 0.803207517, 0.81045723, 0.817584813, 0.824589312, 0.831469595, 0.838224709, 0.84485358, 0.851355195, 0.857728601, 0.863972843, 0.870086968, 0.876070082, 0.881921232, 0.887639642, 0.893224299, 0.898674488, 0.903989315, 0.909168005, 0.914209783, 0.919113874, 0.923879504, 0.928506076, 0.932992816, 0.937339008, 0.941544056, 0.945607305, 0.949528158, 0.953306019, 0.956940353, 0.960430503, 0.963776052, 0.966976464, 0.970031261, 0.972939968, 0.975702107, 0.97831738, 0.980785251, 0.983105481, 0.985277653, 0.987301409, 0.989176512, 0.990902662, 0.992479503, 0.993906975, 0.99518472, 0.996312618, 0.997290432, 0.998118103, 0.99879545, 0.999322355, 0.999698818, 0.999924719, 1], _3 = function(a) {this.value = 0,this.shift = 0;if (a == 124) {this.value = 4228, this.shift = 19;return;} else if (a == 0) {this.value = 0, this.shift = 0;return;}let b = ((~a >>> 31) << 1) - 1, c = a * b, d = -1;while ((c & (1 << 15)) == 0) c <<= 1, d++;c >>= 1;this.shift = 27 - d;let e = _t8[(c - 0x3e00) >> 10], f = c * e;f = (1 << 30) - f, f += (1 << 14), f >>= 15, f *= e, f += (1 << 14), f >>= 15;let g = f;f *= c, f = (1 << 29) - f, f += (1 << 14), f >>= 15, f *= g, f += (1 << 13), f >>= 14, f *= b;if (f > 32767 && b == 1) f = 32767;else if (f < -32768 && b == -1) f = -32768;this.value = f;}, _f1 = function(a, b, c, e, f) {var d = 0;if (c <= 0) return (d | 0);var g = 1 << (b - 1);for (var i = 0; i < c; ++i) {var h = a[i] - f;if (h < 0) h = 0;else h = (h + g) >> b;d += Math.min(h, e)};return (d | 0)}, _f2 = function(a, b, c, d) {var e = 0;for (var i = 0; i < b; ++i) if (a[i] > e) e = a[i];var f = 0, g = new _2(e);f = g.scale - 16;var h = new Int16Array(124);if (f < 0) for (var i = 0; i < b; ++i) h[i] = (a[i] >> -f);else for (var i = 0; i < b; ++i) h[i] = (a[i] << f);var k = new _3(b);for (var i = 0; i < b; ++i) h[i] = ((h[i] * 3) >> 2);var l = 0;for (var i = 0; i < b; ++i) l += h[i];f += 11, l -= c << f;var m = 0, n = l - (c << f);g = new _2(n),m = ((n >> 16) * k.value) >> 15;var o = 31 - k.shift - g.scale;if (o >= 0) m <<= o;else m >>= -o;var p = _f1(h, f, b, 6, m);if (p != c) {var a1 = (p - c), a2 = 0;if (a1 <= 0) for (; a1 >= -16384; a1 <<= 1) a2++;else for (; a1 < 16384; a1 <<= 1) a2++;var a3 = (a1 * k.value) >> 15;a2 = f - (k.shift + a2 - 15);if (a2 >= 0) a3 <<= a2;else a3 >>= -a2;var a4 = 1, b1 = 0, b2 = 0;for (; ; ) {b1 = p, b2 = m, m += a3, p = _f1(h, f, b, 6, m);if (++a4 > 19) break;if ((p - c) * (b1 - c) <= 0) break;};if (p != c) {var b3 = 0, b4 = 0, b5 = 0;if (p > c) b3 = m, m = b2, b4 = p, b5 = b1;else b3 = b2, b4 = b1, b5 = p;while (p != c && a4 < 20) {var c1 = (m + b3) >> 1;p = _f1(h, f, b, 6, c1);++a4;if (p > c) b3 = c1, b4 = p;else m = c1, b5 = p;}var c2 = Math.abs((b4 - c) | 0), c3 = Math.abs((b5 - c) | 0);if (c2 < c3) m = b3, p = b4;else p = b5;}};for (var i = 0; i < b; ++i) {var d1 = h[i] - m;if (d1 >= 0) d1 = (d1 + (1 << (f - 1))) >> f;else d1 = 0;d[i] = Math.min(d1, 6);};if (p > c) {var i = 0, d2 = 0;for (; d2 < c; ++i) d2 += d[i];d2 -= d[i - 1];d[i - 1] = c - d2;p = c;for (; i < b; ++i) d[i] = 0;};return (c - p) | 0;}, _f3 = function(a, b, c) {var f = c << 1, j = 1;for (var i = 1; i < f; i += 2) {if (i < j) {var d = a[b + i];a[b + i] = a[b + j], a[b + j] = d;var e = a[b + i - 1];a[b + i - 1] = a[b + j - 1], a[b + j - 1] = e}var x = c;while (x > 1 && x < j) j -= x, x >>= 1;j += x}}, _f4 = function(a, b, c) {var d = 1 << c, j = 0;_f3(a, b, d);for (var i = (d >> 1); i > 0; --i,j += 4) {var j0 = a[b + j], j1 = a[b + j + 1], j2 = a[b + j + 2], j3 = a[b + j + 3];a[b + j] = j0 + j2, a[b + j + 1] = j1 + j3, a[b + j + 2] = j0 - j2, a[b + j + 3] = j1 - j3};j = 0;for (var i = (d >> 2); i > 0; --i, j += 8) {var j0 = a[b + j], j1 = a[b + j + 1], j2 = a[b + j + 2], j3 = a[b + j + 3], j4 = a[b + j + 4], j5 = a[b + j + 5], j6 = a[b + j + 6], j7 = a[b + j + 7];a[b + j] = j0 + j4, a[b + j + 1] = j1 + j5, a[b + j + 2] = j2 + j7, a[b + j + 3] = j3 - j6, a[b + j + 4] = j0 - j4, a[b + j + 5] = j1 - j5, a[b + j + 6] = j2 - j7, a[b + j + 7] = j3 + j6}var i = 0, x = (d >> 3), y = 64, z = 4;for (var idx1 = c - 2; idx1 > 0; --idx1, z <<= 1, y >>= 1, x >>= 1) {j = 0;for (var idx2 = x; idx2 != 0; --idx2, j += z << 1) {for (var idx3 = z >> 1; idx3 > 0; --idx3, j += 2, i += y) {var k = j + (z << 1), j0 = a[b + j], j1 = a[b + j + 1], k0 = a[b + k], k1 = a[b + k + 1];a[b + k] = (j0 - (k0 * _t9[128 - i] + k1 * _t9[i])), a[b + j] = (j0 + (k0 * _t9[128 - i] + k1 * _t9[i])), a[b + k + 1] = (j1 + (k0 * _t9[i] - k1 * _t9[128 - i])), a[b + j + 1] = (j1 - (k0 * _t9[i] - k1 * _t9[128 - i]))};for (var idx4 = z >> 1; idx4 > 0; --idx4, j += 2, i -= y) {var k = j + (z << 1), j0 = a[b + j], j1 = a[b + j + 1], k0 = a[b + k], k1 = a[b + k + 1];a[b + k] = (j0 + (k0 * _t9[128 - i] - k1 * _t9[i])), a[b + j] = (j0 - (k0 * _t9[128 - i] - k1 * _t9[i])), a[b + k + 1] = (j1 + (k1 * _t9[128 - i] + k0 * _t9[i])), a[b + j + 1] = (j1 - (k1 * _t9[128 - i] + k0 * _t9[i]))}}}}, _f5 = function(a, b, c, d, e) {var f = 1 << c, g = (f >> 1) - 1, h = f >> 2;for (var i = 0; i < h; ++i) {var i2 = i << 1, j = f - 1 - i2, k = j - 1, in_i2 = a[b + i2], in_i2_1 = a[b + i2 + 1], in_j = a[b + j], in_k = a[b + k];d[e + i2] = (_t4[i] * in_i2 - _t6[i] * in_j), d[e + i2 + 1] = (in_j * _t4[i] + in_i2 * _t6[i]), d[e + k] = (_t4[g - i] * in_k - _t6[g - i] * in_i2_1), d[e + j] = (in_i2_1 * _t4[g - i] + in_k * _t6[g - i]);};_f4(d, e, c - 1);var l = d[e + f - 1], m = d[e + f - 2];d[e] = _t5[0] * d[e], d[e + f - 1] = d[e + 1] * -_t5[0], d[e + f - 2] = _t5[g] * d[e + f - 2] + _t5[1] * l, d[e + 1] = m * _t5[1] - l * _t5[g];var o = f - 3, p = g, j = 3;for (var i = 1; i < h; ++i, --p, o -= 2, j += 2) {var q = d[e + o], r = d[e + o - 1], s = d[e + j], t = d[e + j - 1];d[e + j - 1] = (_t5[p] * s + _t5[(j - 1) >> 1] * t), d[e + j] = (r * _t5[(j + 1) >> 1] - q * _t5[p - 1]), d[e + o] = (t * _t5[p] - s * _t5[(j - 1) >> 1]), d[e + o - 1] = (_t5[(j + 1) >> 1] * q + _t5[p - 1] * r);}}, _f6 = function(a, b, c, d, e) {var f = 1 << c, g = f >> 2, y = f - 1, x = f >> 1, j = x - 1, i = 0;_f5(b, 0, c, d, e);for (; i < g; ++i, --j, ++x, --y) {var h = a[i], k = a[j], l = d[e + x], m = d[e + y];a[i] = -d[e + j], a[j] = -d[e + i], d[e + i] = (h * _t7[y] + l * _t7[i]), d[e + j] = (k * _t7[x] + m * _t7[j]), d[e + x] = (_t7[x] * -m + _t7[j] * k), d[e + y] = (_t7[y] * -l + _t7[i] * h);}}, _f7 = function(a, b, c) {const d = new Uint8Array(124), e1 = new Float32Array(128), e2 = new Float32Array(124), e3 = new Float32Array(124), f = new Int32Array(124), o = new _1;var g = o.pop(_o2[0], b);d[0] = g, e1[0] = _t1[g];for (var i = 1; i < 23; i++) g = o.pop(_o2[i], b), d[i] = g, e1[i] = e1[i - 1] + _t2[g];for (var i = 0; i < 23; i++) {var h = Math.pow(2.0, e1[i] * (0.5 * 0.0009765625)), k = _o1[i], l = _o1[i + 1];for (; k < l; ++k) e3[k] = e1[i], e2[k] = h;}var m = _f2(e3, 124, 198, f);for (var n = 0; n < 256; n += 128) {for (var i = 0; i < 124; ++i) {let h = f[i], k = e2[i];if (h > 0) {let l = 1 << h;g = o.pop(h, b), d[i] = g, k *= _t3[l - 1 + g]} else {var p = Math.random() * 4294967296.0;if (p < (1 << 30) + (1 << 14)) k *= -0.707099974;else k *= 0.707099974;}e1[i] = k;};for (var i = 124; i < 128; ++i) e1[i] = 0;for (var i = m; i > 0; i -= 8) {if (i > 8) o.pop(8, b);else {o.pop(i, b);break;}};_f6(a, e1, 7, c, n);}}, _f8 = function(a, b, c, d) {var e = 0;var f = Math.abs(a - b[c]);for (var i = c; i < d; ++i) {var g = Math.abs(a - b[i]);if (g < f) f = g, e = i - c;};return e}, _f9 = function(a, b, c, d) {var e = c, f = d;do {var g = (e + f) >> 1;if (a > b[g]) e = g;else f = g;} while (f - e > 1);if (f != d) if (a - b[e] > b[f] - a) e = f;return e - c}, _f10 = function(a, b, c, d, e, f) { var g = 1 << d, h = g >> 2, y = g - 1, x = g >> 1, j = x - 1, i = 0;for (; i < h; ++i, ++x, --y, --j) e[f + x] = a[i], e[f + y] = a[j], e[f + i] = -b[c + j] * _t7[x] - b[c + x] * _t7[j], e[f + j] = -b[c + y] * _t7[i] - b[c + i] * _t7[y], a[i] = b[c + i] * _t7[i] - b[c + y] * _t7[y], a[j] = b[c + j] * _t7[j] - b[c + x] * _t7[x];_f5(e, f, d, e, f);}, _f11 = function(q, w, e) {const c = new Float32Array(256), d = new Float32Array(23), f = new Float32Array(23), g = new Float32Array(124), h = new Float32Array(124), j = new Int32Array(124), k = new _1;_f10(q, w, 0, 7, c, 0);_f10(q, w, 128, 7, c, 128);for (var i = 0; i < 23; ++i) {var l = _o1[i], m = _o1[i + 1], n = 0.0;for (; l < m; ++l) {var a = c[l], b = c[l + 128];n += a * a + b * b;};var o = Math.max(1.0, n / (_t0[i] << 1));d[i] = Math.round(Math.log(o) * (1.44269502 * 1024.0));};var r = _f8(d[0], _t1, 0, 64);f[0] = _t1[r];k.push(r, _o2[0], e);for (var i = 1; i < 23; ++i) {r = _f8(d[i] - f[i - 1], _t2, 0, 32);f[i] = f[i - 1] + _t2[r];k.push(r, _o2[i], e);}for (var i = 0; i < 23; ++i)d[i] = (1.0 / Math.pow(2.0, f[i] * (0.5 * 0.0009765625)));for (var i = 0; i < 23; ++i) {var l = _o1[i], m = _o1[i + 1];for (; l < m; ++l) g[l] = f[i], h[l] = d[i];}var s = _f2(g, 124, 198, j);for (var u = 0; u < 256; u += 128) {for (var i = 0; i < 124; ++i) {var p = j[i];if (p > 0) {var t = 1 << p;r = _f9(h[i] * c[u + i], _t3, t - 1, (t << 1) - 1);k.push(r, p, e);}}for (var i = s; i > 0; i -= 8) {if (i > 8) k.push(0, 8, e);else {k.push(0, i, e);break;}}}};return {decode: _f7,encode: _f11}}());
 	const ShapeToRenderer = {
 		shapeToRendererInfo: function(shapes) {
-			var result = [];
+			const result = [];
 			for (let i = 0; i < shapes.length; i++) {
 				const s = shapes[i];
 				var obj = s.obj;
@@ -885,14 +823,12 @@ var PinkFie = (function() {
 			var _cmd = [];
 			for (var i = 0; i < records.length; i++) {
 				var record = records[i];
-				if (!record) {
-					break;
-				}
+				if (!record) break;
 				var isCurved = record.isCurved;
 				var isChange = record.isChange;
 				var code;
 				if (isChange) {
-					code = [0, record.moveX, record.moveY];
+					code = [0, record.moveX || 0, record.moveY || 0];
 				} else {
 					if (isCurved) {
 						code = [1, record.controlX, record.controlY, record.anchorX, record.anchorY];
@@ -951,12 +887,8 @@ var PinkFie = (function() {
 						fills0 = [];
 						fills1 = [];
 						lines = [];
-						if (record.numFillBits) {
-							fillStyles = record.fillStyles;
-						}
-						if (record.numLineBits) {
-							lineStyles = record.lineStyles;
-						}
+						if (record.numFillBits) fillStyles = record.fillStyles;
+						if (record.numLineBits) lineStyles = record.lineStyles;
 					}
 					MoveX = AnchorX;
 					MoveY = AnchorY;
@@ -966,15 +898,9 @@ var PinkFie = (function() {
 					}
 					LineX = MoveX;
 					LineY = MoveY;
-					if (record.stateFillStyle0) {
-						FillStyle0 = record.fillStyle0;
-					}
-					if (record.stateFillStyle1) {
-						FillStyle1 = record.fillStyle1;
-					}
-					if (record.stateLineStyle) {
-						LineStyle = record.lineStyle;
-					}
+					if (record.stateFillStyle0) FillStyle0 = record.fillStyle0;
+					if (record.stateFillStyle1) FillStyle1 = record.fillStyle1;
+					if (record.stateLineStyle) LineStyle = record.lineStyle;
 				} else {
 					var isCurved = record.isCurved;
 					AnchorX = record.anchorX;
@@ -983,9 +909,7 @@ var PinkFie = (function() {
 					var ControlY = record.controlY;
 					if (FillStyle0) {
 						idx = FillStyle0 - 1;
-						if (!(idx in fills0)) {
-							fills0[idx] = [];
-						}
+						if (!(idx in fills0)) fills0[idx] = [];
 						if (!(depth in fills0[idx])) {
 							fills0[idx][depth] = {
 								obj: fillStyles[idx],
@@ -998,15 +922,13 @@ var PinkFie = (function() {
 						}
 						obj = fills0[idx][depth];
 						cache = obj.cache;
-						cache[cache.length] = cloneObject(record);
+						cache[cache.length] = utils.cloneObject(record);
 						obj.endX = AnchorX;
 						obj.endY = AnchorY;
 					}
 					if (FillStyle1) {
 						idx = FillStyle1 - 1;
-						if (!(idx in fills1)) {
-							fills1[idx] = [];
-						}
+						if (!(idx in fills1)) fills1[idx] = [];
 						if (!(depth in fills1[idx])) {
 							fills1[idx][depth] = {
 								obj: fillStyles[idx],
@@ -1019,7 +941,7 @@ var PinkFie = (function() {
 						}
 						obj = fills1[idx][depth];
 						cache = obj.cache;
-						cache[cache.length] = cloneObject(record);
+						cache[cache.length] = utils.cloneObject(record);
 						obj.endX = AnchorX;
 						obj.endY = AnchorY;
 					}
@@ -1050,16 +972,12 @@ var PinkFie = (function() {
 			fills0 = this.fillReverse(fills0);
 			if (fills0.length) {
 				for (var i in fills0) {
-					if (!fills0.hasOwnProperty(i)) {
-						continue;
-					}
+					if (!fills0.hasOwnProperty(i)) continue;
 					var fills = fills0[i];
 					if (i in fills1) {
 						var fill1 = fills1[i];
 						for (var depth in fills) {
-							if (!fills.hasOwnProperty(depth)) {
-								continue;
-							}
+							if (!fills.hasOwnProperty(depth)) continue;
 							fill1[fill1.length] = fills[depth];
 						}
 					} else {
@@ -1070,18 +988,12 @@ var PinkFie = (function() {
 			return this.coordinateAdjustment(fills1, isMorph);
 		},
 		fillReverse: function(fills0) {
-			if (!fills0.length) {
-				return fills0;
-			}
+			if (!fills0.length) return fills0;
 			for (var i in fills0) {
-				if (!fills0.hasOwnProperty(i)) {
-					continue;
-				}
+				if (!fills0.hasOwnProperty(i)) continue;
 				var fills = fills0[i];
 				for (var depth in fills) {
-					if (!fills.hasOwnProperty(depth)) {
-						continue;
-					}
+					if (!fills.hasOwnProperty(depth)) continue;
 					var AnchorX = 0;
 					var AnchorY = 0;
 					var obj = fills[depth];
@@ -1091,9 +1003,7 @@ var PinkFie = (function() {
 					var length = cache.length;
 					if (length) {
 						for (var idx in cache) {
-							if (!cache.hasOwnProperty(idx)) {
-								continue;
-							}
+							if (!cache.hasOwnProperty(idx)) continue;
 							var recode = cache[idx];
 							AnchorX = recode.anchorX;
 							AnchorY = recode.anchorY;
@@ -1128,26 +1038,20 @@ var PinkFie = (function() {
 				var array = [];
 				var fills = fills1[i];
 				for (var depth in fills) {
-					if (!fills.hasOwnProperty(depth)) {
-						continue;
-					}
+					if (!fills.hasOwnProperty(depth)) continue;
 					array[array.length] = fills[depth];
 				}
 				var adjustment = [];
 				if (array.length > 1 && !isMorph) {
 					while (true) {
-						if (!array.length) {
-							break;
-						}
+						if (!array.length) break;
 						var fill = array.shift();
 						if (fill.startX === fill.endX && fill.startY === fill.endY) {
 							adjustment[adjustment.length] = fill;
 							continue;
 						}
 						var mLen = array.length;
-						if (mLen < 0) {
-							break;
-						}
+						if (mLen < 0) break;
 						var isMatch = 0;
 						while (mLen--) {
 							var comparison = array[mLen];
@@ -1185,9 +1089,7 @@ var PinkFie = (function() {
 					for (var compIdx = 0; compIdx < cacheLength; compIdx++) {
 						var r = caches[compIdx];
 						var code = [2, r.anchorX, r.anchorY];
-						if (r.isCurved) {
-							code = [1, r.controlX, r.controlY, r.anchorX, r.anchorY];
-						}
+						if (r.isCurved) code = [1, r.controlX, r.controlY, r.anchorX, r.anchorY];
 						cache[cache.length] = code;
 					}
 				}
@@ -1198,9 +1100,7 @@ var PinkFie = (function() {
 		setStack: function(stack, array) {
 			if (array.length) {
 				for (var i in array) {
-					if (!array.hasOwnProperty(i)) {
-						continue;
-					}
+					if (!array.hasOwnProperty(i)) continue;
 					var data = array[i];
 					stack.push({
 						obj: data.obj,
@@ -1210,38 +1110,76 @@ var PinkFie = (function() {
 			}
 		},
 	}
-	const SwfInput = function(byteStream, version) {
-		this.byteStream = byteStream;
+	const SwfTypes = {
+		tags: {0: "End", 1: "ShowFrame", 2: "DefineShape", 4: "PlaceObject", 5: "RemoveObject", 6: "DefineBits", 7: "DefineButton", 8: "JpegTables", 9: "SetBackgroundColor", 10: "DefineFont", 11: "DefineText", 12: "DoAction", 13: "DefineFontInfo", 14: "DefineSound", 15: "StartSound", 17: "DefineButtonSound", 18: "SoundStreamHead", 19: "SoundStreamBlock", 20: "DefineBitsLossless", 21: "DefineBitsJpeg2", 22: "DefineShape2", 23: "DefineButtonCxform", 24: "Protect", 26: "PlaceObject2", 28: "RemoveObject2", 32: "DefineShape3", 33: "DefineText2", 34: "DefineButton2", 35: "DefineBitsJpeg3", 36: "DefineBitsLossless2", 37: "DefineEditText", 39: "DefineSprite", 40: "NameCharacter", 41: "ProductInfo", 43: "FrameLabel", 45: "SoundStreamHead2", 46: "DefineMorphShape", 48: "DefineFont2", 56: "ExportAssets", 57: "ImportAssets", 58: "EnableDebugger", 59: "DoInitAction", 60: "DefineVideoStream", 61: "VideoFrame", 62: "DefineFontInfo2", 63: "DebugId", 64: "EnableDebugger2", 65: "ScriptLimits", 66: "SetTabIndex", 69: "FileAttributes", 70: "PlaceObject3", 71: "ImportAssets2", 72: "DoAbc", 73: "DefineFontAlignZones", 74: "CsmTextSettings", 75: "DefineFont3", 76: "SymbolClass", 77: "Metadata", 78: "DefineScalingGrid", 82: "DoAbc2", 83: "DefineShape4", 84: "DefineMorphShape2", 86: "DefineSceneAndFrameLabelData", 87: "DefineBinaryData", 88: "DefineFontName", 89: "StartSound2", 90: "DefineBitsJpeg4", 91: "DefineFont4", 93: "EnableTelemetry", 94: "PlaceObject4"},
+		sound: {
+			compression: {
+				0: "uncompressedUnknownEndian",
+				1: "ADPCM",
+				2: "MP3",
+				3: "uncompressed",
+				4: "nellymoser16Khz",
+				5: "nellymoser8Khz",
+				6: "nellymoser",
+				11: "speex"
+			},
+			sampleRate: {
+				0: 5512,
+				1: 11025,
+				2: 22050,
+				3: 44100
+			}
+		},
+		video: {
+			codec: {
+				0: "none",
+				2: "H263",
+				3: "ScreenVideo",
+				4: "Vp6",
+				5: "Vp6WithAlpha",
+				6: "ScreenVideoV2"
+			},
+			deblocking: {
+				0: "useVideoPacketValue",
+				1: "none",
+				2: "Level1",
+				3: "Level2",
+				4: "Level3",
+				5: "Level4"
+			}
+		}
+	}
+	const SwfInput = function(byte_input, version) {
+		this.input = byte_input;
 		this._swfVersion = version;
 	}
-	SwfInput.tagCodes = {0: "End", 1: "ShowFrame", 2: "DefineShape", 4: "PlaceObject", 5: "RemoveObject", 6: "DefineBits", 7: "DefineButton", 8: "JpegTables", 9: "SetBackgroundColor", 10: "DefineFont", 11: "DefineText", 12: "DoAction", 13: "DefineFontInfo", 14: "DefineSound", 15: "StartSound", 17: "DefineButtonSound", 18: "SoundStreamHead", 19: "SoundStreamBlock", 20: "DefineBitsLossless", 21: "DefineBitsJpeg2", 22: "DefineShape2", 23: "DefineButtonCxform", 24: "Protect", 26: "PlaceObject2", 28: "RemoveObject2", 32: "DefineShape3", 33: "DefineText2", 34: "DefineButton2", 35: "DefineBitsJpeg3", 36: "DefineBitsLossless2", 37: "DefineEditText", 39: "DefineSprite", 40: "NameCharacter", 41: "ProductInfo", 43: "FrameLabel", 45: "SoundStreamHead2", 46: "DefineMorphShape", 48: "DefineFont2", 56: "ExportAssets", 57: "ImportAssets", 58: "EnableDebugger", 59: "DoInitAction", 60: "DefineVideoStream", 61: "VideoFrame", 62: "DefineFontInfo2", 63: "DebugId", 64: "EnableDebugger2", 65: "ScriptLimits", 66: "SetTabIndex", 69: "FileAttributes", 70: "PlaceObject3", 71: "ImportAssets2", 72: "DoAbc", 73: "DefineFontAlignZones", 74: "CsmTextSettings", 75: "DefineFont3", 76: "SymbolClass", 77: "Metadata", 78: "DefineScalingGrid", 82: "DoAbc2", 83: "DefineShape4", 84: "DefineMorphShape2", 86: "DefineSceneAndFrameLabelData", 87: "DefineBinaryData", 88: "DefineFontName", 89: "StartSound2", 90: "DefineBitsJpeg4", 91: "DefineFont4", 93: "EnableTelemetry", 94: "PlaceObject4"};
 	SwfInput.decompressSwf = function(swfData) {
-		var byteStream = new ByteStream(swfData);
-		var compression = byteStream.readString(3);
-		var version = byteStream.readUint8();
+		var byte_input = new ByteInput(swfData);
+		var compression = byte_input.readString(3);
+		var version = byte_input.readUint8();
 		if (version == 0) {
-			throw new Error("Invalid SWF version");
+			throw new Error("this data is not swf version");
 		}
-		var uncompressedLength = byteStream.readUint32();
+		var uncompressedLength = byte_input.readUint32();
 		switch (compression) {
 			case "FWS":
 				break;
 			case "CWS":
 				var data = ZLib.decompress(swfData, uncompressedLength, 8);
-				byteStream = new ByteStream(data);
-				byteStream.setOffset(8, 0);
+				byte_input = new ByteInput(data);
+				byte_input.setOffset(8, 0);
 				break;
 			case "ZWS":
-				byteStream = new ByteStream(LZMA.parse(new Uint8Array(swfData), uncompressedLength).buffer);
-				byteStream.setOffset(8, 0);
+				byte_input = new ByteInput(LZMA.parse(new Uint8Array(swfData), uncompressedLength).buffer);
+				byte_input.setOffset(8, 0);
 				break;
 			default:
-				throw new Error("Invalid SWF");
+				throw new Error("this data is not swf.");
 		}
-		var reader = new SwfInput(byteStream, version);
+		var reader = new SwfInput(byte_input, version);
 		var stageSize = reader.rect();
-		var frameRate = byteStream.readFixed8();
-		var numFrames = byteStream.readUint16();
+		var frameRate = byte_input.readFixed8();
+		var numFrames = byte_input.readUint16();
 		var header = {
 			compression,
 			version,
@@ -1249,7 +1187,7 @@ var PinkFie = (function() {
 			frameRate,
 			numFrames
 		};
-		var dataStream = byteStream.extract(byteStream.getLength() - byteStream.position);
+		var dataStream = byte_input.extract(byte_input.length - byte_input.position);
 		var tag = reader.parseTag();
 		var fileAttributes;
 		if (tag.tagcode == 69) {
@@ -1260,9 +1198,7 @@ var PinkFie = (function() {
 		}
 		var backgroundColor = [255, 255, 255, 1];
 		for (let i = 0; i < 2; i++) {
-			if (tag.tagcode == 9) {
-				backgroundColor = tag.rgb;
-			}
+			if (tag.tagcode == 9) backgroundColor = tag.rgb;
 			tag = reader.parseTag();
 		}
 		return {
@@ -1284,6 +1220,7 @@ var PinkFie = (function() {
 				console.log("ERROR:" + message);
 				break;
 		}
+		return "unknown";
 	}
 	SwfInput.prototype.parseTags = function() {
 		var tags = [];
@@ -1301,16 +1238,16 @@ var PinkFie = (function() {
 		return result;
 	}
 	SwfInput.prototype.parseTagCodeLength = function() {
-		var tagCodeAndLength = this.byteStream.readUint16();
+		var tagCodeAndLength = this.input.readUint16();
 		var tagcode = tagCodeAndLength >> 6;
 		var length = (tagCodeAndLength & 0b111111);
-		if (length == 0b111111) length = this.byteStream.readUint32();
+		if (length == 0b111111) length = this.input.readUint32();
 		return { tagcode, length };
 	}
 	SwfInput.prototype.parseTagWithCode = function(tagType, length) {
-		var tagReader = new SwfInput(this.byteStream.extract(length), this._swfVersion);
-		this.byteStream.position += length;
-		var byteStream = tagReader.byteStream;
+		var tagReader = new SwfInput(this.input.extract(length), this._swfVersion);
+		this.input.position += length;
+		var byte_input = tagReader.input;
 		var obj = {};
 		switch (tagType) {
 			case 0:
@@ -1434,7 +1371,7 @@ var PinkFie = (function() {
 				obj = tagReader.parseRemoveObject(2);
 				break;
 			case 8:
-				obj.jpegtable = byteStream.readBytes(length);
+				obj.jpegtable = byte_input.readBytes(length);
 				break;
 			case 9:
 				obj.rgb = tagReader.rgb();
@@ -1459,8 +1396,8 @@ var PinkFie = (function() {
 				break;
 			case 24:
 				if (length > 0) {
-					byteStream.readUint16();
-					obj.data = byteStream.readBytes(length - 2);
+					byte_input.readUint16();
+					obj.data = byte_input.readBytes(length - 2);
 				}
 				break;
 			case 40:
@@ -1482,11 +1419,11 @@ var PinkFie = (function() {
 				obj = tagReader.parseImportAssets(2);
 				break;
 			case 58:
-				obj.debugger = byteStream.readStringWithUntil();
+				obj.debugger = byte_input.readStringWithUntil();
 				break;
 			case 64:
-				byteStream.readUint16();
-				obj.debugger = byteStream.readStringWithUntil();
+				byte_input.readUint16();
+				obj.debugger = byte_input.readStringWithUntil();
 				break;
 			case 59:
 				obj = tagReader.parseDoInitAction(length);
@@ -1498,12 +1435,12 @@ var PinkFie = (function() {
 				obj = tagReader.parseDebugID(length);
 				break;
 			case 65:
-				obj.maxRecursionDepth = byteStream.readUint16();
-				obj.timeoutSeconds = byteStream.readUint16();
+				obj.maxRecursionDepth = byte_input.readUint16();
+				obj.timeoutSeconds = byte_input.readUint16();
 				break;
 			case 66:
-				obj.depth = byteStream.readUint16();
-				obj.tabIndex = byteStream.readUint16();
+				obj.depth = byte_input.readUint16();
+				obj.tabIndex = byte_input.readUint16();
 				break;
 			case 69:
 				obj = tagReader.parseFileAttributes();
@@ -1521,12 +1458,12 @@ var PinkFie = (function() {
 				obj = tagReader.parseSymbolClass();
 				break;
 			case 77:
-				obj.metadata = byteStream.readStringWithUntil();
+				obj.metadata = byte_input.readStringWithUntil();
 				break;
 			case 93:
-				byteStream.readUint16();
+				byte_input.readUint16();
 				if (length > 2) {
-					obj.passwordHash = byteStream.readBytes(32);
+					obj.passwordHash = byte_input.readBytes(32);
 				}
 				break;
 			case 3: // FreeCharacter
@@ -1564,91 +1501,78 @@ var PinkFie = (function() {
 	}
 	//////// color rect matrix ////////
 	SwfInput.prototype.rect = function() {
-		var byteStream = this.byteStream;
-		byteStream.byteAlign();
-		var nBits = byteStream.readUB(5);
-		var obj = {};
-		obj.xMin = byteStream.readSB(nBits);
-		obj.xMax = byteStream.readSB(nBits);
-		obj.yMin = byteStream.readSB(nBits);
-		obj.yMax = byteStream.readSB(nBits);
+		const byte_input = this.input;
+		byte_input.byteAlign();
+		var nBits = byte_input.readUB(5);
+		const obj = {};
+		obj.xMin = byte_input.readSB(nBits);
+		obj.xMax = byte_input.readSB(nBits);
+		obj.yMin = byte_input.readSB(nBits);
+		obj.yMax = byte_input.readSB(nBits);
 		return obj;
 	}
 	SwfInput.prototype.rgb = function() {
-		var byteStream = this.byteStream;
-		return [byteStream.readUint8(), byteStream.readUint8(), byteStream.readUint8(), 1];
+		const byte_input = this.input;
+		return [byte_input.readUint8(), byte_input.readUint8(), byte_input.readUint8(), 1];
 	}
 	SwfInput.prototype.rgba = function() {
-		var byteStream = this.byteStream;
-		return [byteStream.readUint8(), byteStream.readUint8(), byteStream.readUint8(), byteStream.readUint8() / 255];
+		const byte_input = this.input;
+		return [byte_input.readUint8(), byte_input.readUint8(), byte_input.readUint8(), byte_input.readUint8() / 255];
 	}
 	SwfInput.prototype.colorTransform = function(hasAlpha) {
-		var byteStream = this.byteStream;
-		byteStream.byteAlign();
+		const byte_input = this.input;
+		byte_input.byteAlign();
 		var result = [1, 1, 1, 1, 0, 0, 0, 0];
-		var first6bits = byteStream.readUB(6);
+		var first6bits = byte_input.readUB(6);
 		var hasAddTerms = first6bits >> 5;
 		var hasMultiTerms = (first6bits >> 4) & 1;
 		var nbits = first6bits & 0x0f;
 		if (hasMultiTerms) {
-			result[0] = byteStream.readSBFixed8(nbits);
-			result[1] = byteStream.readSBFixed8(nbits);
-			result[2] = byteStream.readSBFixed8(nbits);
+			result[0] = byte_input.readSBFixed8(nbits);
+			result[1] = byte_input.readSBFixed8(nbits);
+			result[2] = byte_input.readSBFixed8(nbits);
 			if (hasAlpha) {
-				result[3] = byteStream.readSBFixed8(nbits);
+				result[3] = byte_input.readSBFixed8(nbits);
 			}
 		}
 		if (hasAddTerms) {
-			result[4] = byteStream.readSB(nbits);
-			result[5] = byteStream.readSB(nbits);
-			result[6] = byteStream.readSB(nbits);
+			result[4] = byte_input.readSB(nbits);
+			result[5] = byte_input.readSB(nbits);
+			result[6] = byte_input.readSB(nbits);
 			if (hasAlpha) {
-				result[7] = byteStream.readSB(nbits);
+				result[7] = byte_input.readSB(nbits);
 			}
 		}
 		return result;
 	}
 	SwfInput.prototype.matrix = function() {
-		var byteStream = this.byteStream;
-		byteStream.byteAlign();
+		const byte_input = this.input;
+		byte_input.byteAlign();
 		var result = [1, 0, 0, 1, 0, 0];
 		// Scale
-		if (byteStream.readUB(1)) {
-			var nScaleBits = byteStream.readUB(5);
-			result[0] = byteStream.readSBFixed16(nScaleBits);
-			result[3] = byteStream.readSBFixed16(nScaleBits);
+		if (byte_input.readUB(1)) {
+			var nScaleBits = byte_input.readUB(5);
+			result[0] = byte_input.readSBFixed16(nScaleBits);
+			result[3] = byte_input.readSBFixed16(nScaleBits);
 		}
 		// Rotate/Skew
-		if (byteStream.readUB(1)) {
-			var nRotateBits = byteStream.readUB(5);
-			result[1] = byteStream.readSBFixed16(nRotateBits);
-			result[2] = byteStream.readSBFixed16(nRotateBits);
+		if (byte_input.readUB(1)) {
+			var nRotateBits = byte_input.readUB(5);
+			result[1] = byte_input.readSBFixed16(nRotateBits);
+			result[2] = byte_input.readSBFixed16(nRotateBits);
 		}
 		// Translate (always present)
-		var nTranslateBits = byteStream.readUB(5);
-		result[4] = byteStream.readSB(nTranslateBits);
-		result[5] = byteStream.readSB(nTranslateBits);
+		var nTranslateBits = byte_input.readUB(5);
+		result[4] = byte_input.readSB(nTranslateBits);
+		result[5] = byte_input.readSB(nTranslateBits);
 		return result;
 	}
 	//////// Structure ////////
 	//////// Shapes ////////
-	SwfInput.prototype.shapeWithStyle = function(shapeVersion) {
-		var byteStream = this.byteStream;
-		var fillStyles = this.fillStyleArray(shapeVersion);
-		var lineStyles = this.lineStyleArray(shapeVersion);
-		var numBits = byteStream.readUint8();
-		var numFillBits = numBits >> 4;
-		var numLineBits = numBits & 0b1111;
-		var shapeRecords = this.shapeRecords(shapeVersion, {
-			fillBits: numFillBits,
-			lineBits: numLineBits
-		});
-		return { fillStyles, lineStyles, shapeRecords, numFillBits, numLineBits };
-	}
 	SwfInput.prototype.fillStyleArray = function(shapeVersion) {
-		var byteStream = this.byteStream;
-		var count = byteStream.readUint8();
-		if ((shapeVersion >= 2) && (count == 0xff)) count = byteStream.readUint16();
+		const byte_input = this.input;
+		var count = byte_input.readUint8();
+		if ((shapeVersion >= 2) && (count == 0xff)) count = byte_input.readUint16();
 		var fillStyles = [];
 		while (count--) {
 			fillStyles.push(this.fillStyle(shapeVersion));
@@ -1656,15 +1580,15 @@ var PinkFie = (function() {
 		return fillStyles;
 	}
 	SwfInput.prototype.gradient = function(shapeVersion) {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var matrix = this.matrix();
-		var flags = byteStream.readUint8();
+		var flags = byte_input.readUint8();
 		var spreadMode = (flags >> 6) & 0b11;
 		var interpolationMode = (flags >> 4) & 0b11;
 		var numGradients = (flags & 0b1111);
 		var gradientRecords = [];
 		for (var i = numGradients; i--;) {
-			var ratio = byteStream.readUint8() / 255;
+			var ratio = byte_input.readUint8() / 255;
 			var color = ((shapeVersion >= 3) ? this.rgba() : this.rgb());
 			gradientRecords.push({ ratio, color });
 		}
@@ -1676,17 +1600,14 @@ var PinkFie = (function() {
 		};
 	}
 	SwfInput.prototype.fillStyle = function(shapeVersion) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		var bitType = byteStream.readUint8();
+		const byte_input = this.input;
+		const obj = {};
+		var bitType = byte_input.readUint8();
 		obj.type = bitType;
 		switch (bitType) {
 			case 0x00:
-				if (shapeVersion >= 3) {
-					obj.color = this.rgba();
-				} else {
-					obj.color = this.rgb();
-				}
+				if (shapeVersion >= 3) obj.color = this.rgba();
+				else obj.color = this.rgb();
 				break;
 			case 0x10:
 				obj.linearGradient = this.gradient(shapeVersion);
@@ -1696,13 +1617,13 @@ var PinkFie = (function() {
 				break;
 			case 0x13:
 				obj.gradient = this.gradient(shapeVersion);
-				obj.focalPoint = byteStream.readFixed8();
+				obj.focalPoint = byte_input.readFixed8();
 				break;
 			case 0x40:
 			case 0x41:
 			case 0x42:
 			case 0x43:
-				obj.bitmapId = byteStream.readUint16();
+				obj.bitmapId = byte_input.readUint16();
 				obj.bitmapMatrix = this.matrix();
 				obj.isSmoothed = ((this._swfVersion >= 8) && ((bitType & 0b10) == 0));
 				obj.isRepeating = (bitType & 0b01);
@@ -1714,28 +1635,28 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.lineStyleArray = function(shapeVersion) {
-		var byteStream = this.byteStream;
-		var count = byteStream.readUint8();
-		if ((shapeVersion >= 2) && (count === 0xff)) count = byteStream.readUint16();
+		const byte_input = this.input;
+		var count = byte_input.readUint8();
+		if ((shapeVersion >= 2) && (count === 0xff)) count = byte_input.readUint16();
 		var lineStyles = [];
 		while (count--) lineStyles.push(this.lineStyles(shapeVersion));
 		return lineStyles;
 	}
 	SwfInput.prototype.lineStyles = function(shapeVersion) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.width = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.width = byte_input.readUint16();
 		if (shapeVersion == 4) {
-			obj.startCapStyle = byteStream.readUB(2);
-			obj.joinStyle = byteStream.readUB(2);
-			obj.hasFill = byteStream.readUB(1);
-			obj.noHScale = byteStream.readUB(1);
-			obj.noVScale = byteStream.readUB(1);
-			obj.pixelHinting = byteStream.readUB(1);
-			byteStream.readUB(5);
-			obj.noClose = byteStream.readUB(1);
-			obj.endCapStyle = byteStream.readUB(2);
-			if (obj.joinStyle === 2) obj.miterLimitFactor = byteStream.readFixed8();
+			obj.startCapStyle = byte_input.readUB(2);
+			obj.joinStyle = byte_input.readUB(2);
+			obj.hasFill = byte_input.readUB(1);
+			obj.noHScale = byte_input.readUB(1);
+			obj.noVScale = byte_input.readUB(1);
+			obj.pixelHinting = byte_input.readUB(1);
+			byte_input.readUB(5);
+			obj.noClose = byte_input.readUB(1);
+			obj.endCapStyle = byte_input.readUB(2);
+			if (obj.joinStyle === 2) obj.miterLimitFactor = byte_input.readFixed8();
 			if (obj.hasFill) obj.fillType = this.fillStyle(shapeVersion); else obj.color = this.rgba();
 		} else {
 			// LineStyle1
@@ -1744,10 +1665,10 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.shapeRecords = function(shapeVersion, currentNumBits) {
-		var byteStream = this.byteStream;
-		var shapeRecords = [];
+		const byte_input = this.input;
+		const shapeRecords = [];
 		while (true) {
-			var first6Bits = byteStream.readUB(6);
+			var first6Bits = byte_input.readUB(6);
 			var shape = null;
 			if (first6Bits & 0x20) {
 				var numBits = first6Bits & 0b1111;
@@ -1760,7 +1681,7 @@ var PinkFie = (function() {
 				if (first6Bits) shape = this.styleChangeRecord(shapeVersion, first6Bits, currentNumBits);
 			}
 			if (!shape) {
-				byteStream.byteAlign();
+				byte_input.byteAlign();
 				break;
 			} else {
 				shapeRecords.push(shape);
@@ -1769,20 +1690,20 @@ var PinkFie = (function() {
 		return shapeRecords;
 	}
 	SwfInput.prototype.straightEdgeRecord = function(numBits) {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var deltaX = 0;
 		var deltaY = 0;
-		var GeneralLineFlag = byteStream.readUB(1);
+		var GeneralLineFlag = byte_input.readUB(1);
 		if (GeneralLineFlag) {
-			deltaX = byteStream.readSB(numBits + 2);
-			deltaY = byteStream.readSB(numBits + 2);
+			deltaX = byte_input.readSB(numBits + 2);
+			deltaY = byte_input.readSB(numBits + 2);
 		} else {
-			var VertLineFlag = byteStream.readUB(1);
+			var VertLineFlag = byte_input.readUB(1);
 			if (VertLineFlag) {
 				deltaX = 0;
-				deltaY = byteStream.readSB(numBits + 2);
+				deltaY = byte_input.readSB(numBits + 2);
 			} else {
-				deltaX = byteStream.readSB(numBits + 2);
+				deltaX = byte_input.readSB(numBits + 2);
 				deltaY = 0;
 			}
 		}
@@ -1794,11 +1715,11 @@ var PinkFie = (function() {
 		};
 	}
 	SwfInput.prototype.curvedEdgeRecord = function(numBits) {
-		var byteStream = this.byteStream;
-		var controlDeltaX = byteStream.readSB(numBits + 2);
-		var controlDeltaY = byteStream.readSB(numBits + 2);
-		var anchorDeltaX = byteStream.readSB(numBits + 2);
-		var anchorDeltaY = byteStream.readSB(numBits + 2);
+		const byte_input = this.input;
+		var controlDeltaX = byte_input.readSB(numBits + 2);
+		var controlDeltaY = byte_input.readSB(numBits + 2);
+		var anchorDeltaX = byte_input.readSB(numBits + 2);
+		var anchorDeltaY = byte_input.readSB(numBits + 2);
 		return {
 			controlDeltaX,
 			controlDeltaY,
@@ -1809,28 +1730,28 @@ var PinkFie = (function() {
 		};
 	}
 	SwfInput.prototype.styleChangeRecord = function(shapeVersion, changeFlag, currentNumBits) {
-		var byteStream = this.byteStream;
-		var obj = {};
+		const byte_input = this.input;
+		const obj = {};
 		obj.stateMoveTo = changeFlag & 1;
 		obj.stateFillStyle0 = (changeFlag >> 1) & 1;
 		obj.stateFillStyle1 = (changeFlag >> 2) & 1;
 		obj.stateLineStyle = (changeFlag >> 3) & 1;
 		obj.stateNewStyles = (changeFlag >> 4) & 1;
 		if (obj.stateMoveTo) {
-			var moveBits = byteStream.readUB(5);
-			obj.moveX = byteStream.readSB(moveBits);
-			obj.moveY = byteStream.readSB(moveBits);
+			var moveBits = byte_input.readUB(5);
+			obj.moveX = byte_input.readSB(moveBits);
+			obj.moveY = byte_input.readSB(moveBits);
 		}
 		obj.fillStyle0 = 0;
-		if (obj.stateFillStyle0) obj.fillStyle0 = byteStream.readUB(currentNumBits.fillBits);
+		if (obj.stateFillStyle0) obj.fillStyle0 = byte_input.readUB(currentNumBits.fillBits);
 		obj.fillStyle1 = 0;
-		if (obj.stateFillStyle1) obj.fillStyle1 = byteStream.readUB(currentNumBits.fillBits);
+		if (obj.stateFillStyle1) obj.fillStyle1 = byte_input.readUB(currentNumBits.fillBits);
 		obj.lineStyle = 0;
-		if (obj.stateLineStyle) obj.lineStyle = byteStream.readUB(currentNumBits.lineBits);
+		if (obj.stateLineStyle) obj.lineStyle = byte_input.readUB(currentNumBits.lineBits);
 		if (obj.stateNewStyles) {
 			obj.fillStyles = this.fillStyleArray(shapeVersion);
 			obj.lineStyles = this.lineStyleArray(shapeVersion);
-			var numBits = byteStream.readUint8();
+			var numBits = byte_input.readUint8();
 			currentNumBits.fillBits = obj.numFillBits = numBits >> 4;
 			currentNumBits.lineBits = obj.numLineBits = numBits & 0b1111;
 		}
@@ -1838,11 +1759,9 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.morphFillStyleArray = function(shapeVersion) {
-		var byteStream = this.byteStream;
-		var fillStyleCount = byteStream.readUint8();
-		if ((shapeVersion >= 2) && (fillStyleCount == 0xff)) {
-			fillStyleCount = byteStream.readUint16();
-		}
+		const byte_input = this.input;
+		var fillStyleCount = byte_input.readUint8();
+		if ((shapeVersion >= 2) && (fillStyleCount == 0xff)) fillStyleCount = byte_input.readUint16();
 		var fillStyles = [];
 		for (var i = fillStyleCount; i--;) {
 			fillStyles.push(this.morphFillStyle());
@@ -1850,9 +1769,9 @@ var PinkFie = (function() {
 		return fillStyles;
 	}
 	SwfInput.prototype.morphFillStyle = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		var bitType = byteStream.readUint8();
+		const byte_input = this.input;
+		const obj = {};
+		var bitType = byte_input.readUint8();
 		obj.type = bitType;
 		switch (bitType) {
 			case 0x00:
@@ -1870,14 +1789,14 @@ var PinkFie = (function() {
 				// but it works even in earlier tags (#2730).
 				// TODO(Herschel): How is focal_point stored?
 				obj.gradient = this.morphGradient();
-				obj.startFocalPoint = byteStream.readFixed8();
-				obj.endFocalPoint = byteStream.readFixed8();
+				obj.startFocalPoint = byte_input.readFixed8();
+				obj.endFocalPoint = byte_input.readFixed8();
 				break;
 			case 0x40:
 			case 0x41:
 			case 0x42:
 			case 0x43:
-				obj.bitmapId = byteStream.readUint16();
+				obj.bitmapId = byte_input.readUint16();
 				obj.bitmapStartMatrix = this.matrix();
 				obj.bitmapEndMatrix = this.matrix();
 				obj.isSmoothed = (bitType & 0b10) == 0;
@@ -1889,20 +1808,20 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.morphGradient = function() {
-		var obj = {};
-		var byteStream = this.byteStream;
+		const obj = {};
+		const byte_input = this.input;
 		obj.startMatrix = this.matrix();
 		obj.endMatrix = this.matrix();
-		var flags = byteStream.readUint8();
+		var flags = byte_input.readUint8();
 		obj.spreadMode = (flags >> 6) & 0b11;
 		obj.interpolationMode = (flags >> 4) & 0b11;
 		var numGradients = (flags & 0b1111);
 		var gradientRecords = [];
 		for (var i = numGradients; i--;) {
 			gradientRecords.push({
-				startRatio: byteStream.readUint8() / 255,
+				startRatio: byte_input.readUint8() / 255,
 				startColor: this.rgba(),
-				endRatio: byteStream.readUint8() / 255,
+				endRatio: byte_input.readUint8() / 255,
 				endColor: this.rgba()
 			});
 		}
@@ -1910,39 +1829,33 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.morphLineStyleArray = function(shapeVersion) {
-		var byteStream = this.byteStream;
-		var lineStyleCount = byteStream.readUint8();
-		if ((shapeVersion >= 2) && (lineStyleCount == 0xff)) {
-			lineStyleCount = byteStream.readUint16();
-		}
-		var lineStyles = [];
-		for (var i = lineStyleCount; i--;) {
-			lineStyles[lineStyles.length] = this.morphLineStyle(shapeVersion);
-		}
+		const byte_input = this.input;
+		var lineStyleCount = byte_input.readUint8();
+		if ((shapeVersion >= 2) && (lineStyleCount == 0xff)) lineStyleCount = byte_input.readUint16();
+		const lineStyles = [];
+		for (var i = lineStyleCount; i--;) lineStyles.push(this.morphLineStyle(shapeVersion));
 		return lineStyles;
 	}
 	SwfInput.prototype.morphLineStyle = function(shapeVersion) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.startWidth = byteStream.readUint16();
-		obj.endWidth = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.startWidth = byte_input.readUint16();
+		obj.endWidth = byte_input.readUint16();
 		if (shapeVersion < 2) {
 			obj.startColor = this.rgba();
 			obj.endColor = this.rgba();
 		} else {
 			// MorphLineStyle2 in DefineMorphShape2
-			obj.startCapStyle = byteStream.readUB(2);
-			obj.joinStyle = byteStream.readUB(2);
-			obj.hasFill = byteStream.readUB(1);
-			obj.noHScale = byteStream.readUB(1);
-			obj.noVScale = byteStream.readUB(1);
-			obj.pixelHinting = byteStream.readUB(1);
-			byteStream.readUB(5); // Reserved
-			obj.noClose = byteStream.readUB(1);
-			obj.endCapStyle = byteStream.readUB(2);
-			if (obj.joinStyle === 2) {
-				obj.miterLimitFactor = byteStream.readFixed8();
-			}
+			obj.startCapStyle = byte_input.readUB(2);
+			obj.joinStyle = byte_input.readUB(2);
+			obj.hasFill = byte_input.readUB(1);
+			obj.noHScale = byte_input.readUB(1);
+			obj.noVScale = byte_input.readUB(1);
+			obj.pixelHinting = byte_input.readUB(1);
+			byte_input.readUB(5); // Reserved
+			obj.noClose = byte_input.readUB(1);
+			obj.endCapStyle = byte_input.readUB(2);
+			if (obj.joinStyle === 2) obj.miterLimitFactor = byte_input.readFixed8();
 			if (obj.hasFill) {
 				obj.fillType = this.morphFillStyle();
 			} else {
@@ -1953,15 +1866,12 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.morphShapeWithStyle = function(shapeVersion, t) {
-		var byteStream = this.byteStream;
-		var numBits = byteStream.readUint8();
+		const byte_input = this.input;
+		var numBits = byte_input.readUint8();
 		var NumFillBits = numBits >> 4;
 		var NumLineBits = numBits & 0b1111;
 		// NumFillBits and NumLineBits are written as 0 for the end shape.
-		if (t) {
-			NumFillBits = 0;
-			NumLineBits = 0;
-		}
+		if (t) NumFillBits = 0, NumLineBits = 0;
 		var ShapeRecords = this.shapeRecords(shapeVersion, {
 			fillBits: NumFillBits,
 			lineBits: NumLineBits
@@ -1970,85 +1880,58 @@ var PinkFie = (function() {
 	}
 	//////// Font Text ////////
 	SwfInput.prototype.getTextRecords = function(ver, GlyphBits, AdvanceBits) {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var array = [];
 		while (true) {
-			var flags = byteStream.readUint8();
-			if (flags == 0) {
-				// End of text records.
-				break;
-			}
-			var obj = {};
-			if (flags & 0b1000) {
-				obj.fontId = byteStream.readUint16();
-			}
-			if (flags & 0b100) {
-				obj.textColor = (ver === 1) ? this.rgb() : this.rgba();
-			}
-			if (flags & 0b1) {
-				obj.XOffset = byteStream.readInt16();
-			}
-			if (flags & 0b10) {
-				obj.YOffset = byteStream.readInt16();
-			}
-			if (flags & 0b1000) {
-				obj.textHeight = byteStream.readUint16();
-			}
+			var flags = byte_input.readUint8();
+			if (flags == 0) break;
+			const obj = {};
+			if (flags & 0b1000) obj.fontId = byte_input.readUint16();
+			if (flags & 0b100) obj.textColor = (ver === 1) ? this.rgb() : this.rgba();
+			if (flags & 0b1) obj.XOffset = byte_input.readInt16();
+			if (flags & 0b10) obj.YOffset = byte_input.readInt16();
+			if (flags & 0b1000) obj.textHeight = byte_input.readUint16();
 			obj.glyphEntries = this.getGlyphEntries(GlyphBits, AdvanceBits);
 			array.push(obj);
 		}
 		return array;
 	}
-	SwfInput.prototype.textAlign = function(type) {
-		switch (type) {
-			case 0:
-				return "left";
-			case 1:
-				return "right";
-			case 2:
-				return "center";
-			case 3:
-				return "justify";
-			default:
-				this.emitMessage("Invalid language code:" + type, "error");
-		}
-	}
 	SwfInput.prototype.getGlyphEntries = function(GlyphBits, AdvanceBits) {
 		// TODO(Herschel): font_id and height are tied together. Merge them into a struct?
-		var byteStream = this.byteStream;
-		var count = byteStream.readUint8();
+		const byte_input = this.input;
+		var count = byte_input.readUint8();
 		var array = [];
-		while (count--) array.push({index: byteStream.readUB(GlyphBits), advance: byteStream.readSB(AdvanceBits)});
+		while (count--) array.push({index: byte_input.readUB(GlyphBits), advance: byte_input.readSB(AdvanceBits)});
 		return array;
 	}
 	SwfInput.prototype.buttonRecords = function(ver) {
 		var records = [];
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		while (true) {
-			var flags = byteStream.readUint8();
+			var flags = byte_input.readUint8();
 			if (flags == 0) break;
-			var obj = {};
+			const obj = {};
 			obj.buttonStateUp = flags & 1;
 			obj.buttonStateOver = (flags >>> 1) & 1;
 			obj.buttonStateDown = (flags >>> 2) & 1;
 			obj.buttonStateHitTest = (flags >>> 3) & 1;
-			obj.characterId = byteStream.readUint16();
-			obj.depth = byteStream.readUint16();
+			obj.characterId = byte_input.readUint16();
+			obj.depth = byte_input.readUint16();
 			obj.matrix = this.matrix();
 			if (ver == 2) obj.colorTransform = this.colorTransform(true);
 			if (flags & 16) obj.filters = this.getFilterList();
-			if (flags & 32) obj.blendMode = this.parseBlendMode();
+			if (flags & 32) obj.blendMode = byte_input.readUint8();
 			records.push(obj);
 		}
 		return records;
 	}
 	SwfInput.prototype.buttonActions = function(endOffset) {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var results = [];
 		while (true) {
-			var obj = {};
-			var condActionSize = byteStream.readUint16();
-			var flags = byteStream.readUint16();
+			const obj = {};
+			var condActionSize = byte_input.readUint16();
+			var flags = byte_input.readUint16();
 			obj.condIdleToOverUp = flags & 1;
 			obj.condOverUpToIdle = (flags >>> 1) & 1;
 			obj.condOverUpToOverDown = (flags >>> 2) & 1;
@@ -2059,197 +1942,106 @@ var PinkFie = (function() {
 			obj.condIdleToOverDown = (flags >>> 7) & 1;
 			obj.condOverDownToIdle = (flags >>> 8) & 1;
 			obj.condKeyPress = (flags >> 9);
-			byteStream.byteAlign();
+			byte_input.byteAlign();
 			if (condActionSize >= 4) {
-				obj.actionScript = this.parseAction(byteStream.readBytes(condActionSize - 4));
+				obj.actionScript = this.parseAction(byte_input.readBytes(condActionSize - 4));
 			} else if (condActionSize == 0) {
 				// Last action, read to end.
-				obj.actionScript = this.parseAction(byteStream.readBytes(endOffset - byteStream.position));
+				obj.actionScript = this.parseAction(byte_input.readBytes(endOffset - byte_input.position));
 			} else {
 				// Some SWFs have phantom action records with an invalid length.
 				// See 401799_pre_Scene_1.swf
 				// TODO: How does Flash handle this?
 			}
 			results.push(obj);
-			if (condActionSize == 0) {
-				break;
-			}
-			if (byteStream.position > endOffset) {
-				break;
-			}
+			if (condActionSize == 0) break;
+			if (byte_input.position > endOffset) break;
 		}
 		return results;
 	}
 	SwfInput.prototype.parseSoundFormat = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		var frags = byteStream.readUint8();
-		var compression;
-		switch (frags >> 4) {
-			case 0: // UncompressedUnknownEndian
-				compression = "uncompressedUnknownEndian";
-				break;
-			case 1: // ADPCM
-				compression = "ADPCM";
-				break;
-			case 2: // MP3
-				compression = "MP3";
-				break;
-			case 3: // Uncompressed
-				compression = "uncompressed";
-				break;
-			case 4: // Nellymoser16Khz
-				compression = "nellymoser16Khz";
-				break;
-			case 5: // Nellymoser8Khz
-				compression = "nellymoser8Khz";
-				break;
-			case 6: // Nellymoser
-				compression = "nellymoser";
-				break;
-			case 11: // Speex
-				compression = "speex";
-				break;
-			default:
-				this.emitMessage("Invalid audio format", "error");
-		}
-		obj.compression = compression;
-		var sampleRate;
-		switch ((frags & 0b1100) >> 2) {
-			case 0:
-				sampleRate = 5512;
-				break;
-			case 1:
-				sampleRate = 11025;
-				break;
-			case 2:
-				sampleRate = 22050;
-				break;
-			case 3:
-				sampleRate = 44100;
-				break;
-			default:
-				console.log("unreachable");
-		}
-		obj.sampleRate = sampleRate;
+		const byte_input = this.input;
+		const obj = {};
+		var frags = byte_input.readUint8();
+		obj.compression = SwfTypes.sound.compression[frags >> 4] || this.emitMessage("Invalid audio format", "error");
+		obj.sampleRate = SwfTypes.sound.sampleRate[(frags & 0b1100) >> 2];
 		obj.is16Bit = frags & 0b10;
 		obj.isStereo = frags & 0b1;
 		return obj;
 	}
-	SwfInput.prototype.parseBlendMode = function() {
-		var blendMode = this.byteStream.readUint8();
-		switch (blendMode) {
-			case 0:
-			case 1:
-				return "normal";
-			case 2:
-				return "layer";
-			case 3:
-				return "multiply";
-			case 4:
-				return "screen";
-			case 5:
-				return "lighten";
-			case 6:
-				return "darken";
-			case 7:
-				return "difference";
-			case 8:
-				return "add";
-			case 9:
-				return "subtract";
-			case 10:
-				return "invert";
-			case 11:
-				return "alpha";
-			case 12:
-				return "erase";
-			case 13:
-				return "overlay";
-			case 14:
-				return "hardlight";
-			default:
-				this.emitMessage("Invalid blend mode: " + blendMode, "error");
-		}
-	}
 	SwfInput.prototype.parseClipActions = function(startOffset, length) {
-		var byteStream = this.byteStream;
-		byteStream.readUint16();
+		const byte_input = this.input;
+		byte_input.readUint16();
 		var allEventFlags = this.parseClipEventFlags();
 		var endLength = startOffset + length;
 		var actionRecords = [];
-		while (byteStream.position < endLength) {
+		while (byte_input.position < endLength) {
 			var clipActionRecord = this.parseClipActionRecord(endLength);
-			actionRecords[actionRecords.length] = clipActionRecord;
-			if (endLength <= byteStream.position) {
-				break;
-			}
-			var endFlag = (this._swfVersion <= 5) ? byteStream.readUint16() : byteStream.readUint32();
+			actionRecords.push(clipActionRecord);
+			if (endLength <= byte_input.position) break;
+			var endFlag = (this._swfVersion <= 5) ? byte_input.readUint16() : byte_input.readUint32();
 			if (!endFlag) break;
-			if (this._swfVersion <= 5) {
-				byteStream.position -= 2;
-			} else {
-				byteStream.position -= 4;
-			}
-			if (clipActionRecord.keyCode) byteStream.position -= 1;
+			if (this._swfVersion <= 5) byte_input.position -= 2;
+			else byte_input.position -= 4;
+			if (clipActionRecord.keyCode) byte_input.position -= 1;
 		}
 		return { allEventFlags, actionRecords };
 	}
 	SwfInput.prototype.parseClipActionRecord = function(endLength) {
-		var byteStream = this.byteStream;
-		var obj = {};
+		const byte_input = this.input;
+		const obj = {};
 		var eventFlags = this.parseClipEventFlags();
-		if (endLength > byteStream.position) {
-			var ActionRecordSize = byteStream.readUint32();
-			if (eventFlags.keyPress) obj.keyCode = byteStream.readUint8();
+		if (endLength > byte_input.position) {
+			var ActionRecordSize = byte_input.readUint32();
+			if (eventFlags.keyPress) obj.keyCode = byte_input.readUint8();
 			obj.eventFlags = eventFlags;
-			obj.actions = this.parseAction(byteStream.readBytes(ActionRecordSize));
+			obj.actions = this.parseAction(byte_input.readBytes(ActionRecordSize));
 		}
 		return obj;
 	}
 	SwfInput.prototype.parseClipEventFlags = function() {
-		var obj = {};
-		var byteStream = this.byteStream;
-		obj.keyUp = byteStream.readUB(1);
-		obj.keyDown = byteStream.readUB(1);
-		obj.mouseUp = byteStream.readUB(1);
-		obj.mouseDown = byteStream.readUB(1);
-		obj.mouseMove = byteStream.readUB(1);
-		obj.unload = byteStream.readUB(1);
-		obj.enterFrame = byteStream.readUB(1);
-		obj.load = byteStream.readUB(1);
+		const obj = {};
+		const byte_input = this.input;
+		obj.keyUp = byte_input.readUB(1);
+		obj.keyDown = byte_input.readUB(1);
+		obj.mouseUp = byte_input.readUB(1);
+		obj.mouseDown = byte_input.readUB(1);
+		obj.mouseMove = byte_input.readUB(1);
+		obj.unload = byte_input.readUB(1);
+		obj.enterFrame = byte_input.readUB(1);
+		obj.load = byte_input.readUB(1);
 		if (this._swfVersion >= 6) {
-			obj.dragOver = byteStream.readUB(1);
-			obj.rollOut = byteStream.readUB(1);
-			obj.rollOver = byteStream.readUB(1);
-			obj.releaseOutside = byteStream.readUB(1);
-			obj.release = byteStream.readUB(1);
-			obj.press = byteStream.readUB(1);
-			obj.initialize = byteStream.readUB(1);
+			obj.dragOver = byte_input.readUB(1);
+			obj.rollOut = byte_input.readUB(1);
+			obj.rollOver = byte_input.readUB(1);
+			obj.releaseOutside = byte_input.readUB(1);
+			obj.release = byte_input.readUB(1);
+			obj.press = byte_input.readUB(1);
+			obj.initialize = byte_input.readUB(1);
 		}
-		obj.data = byteStream.readUB(1);
+		obj.data = byte_input.readUB(1);
 		if (this._swfVersion >= 6) {
-			byteStream.readUB(5);
-			obj.construct = byteStream.readUB(1);
-			obj.keyPress = byteStream.readUB(1);
-			obj.dragOut = byteStream.readUB(1);
-			byteStream.readUB(8);
+			byte_input.readUB(5);
+			obj.construct = byte_input.readUB(1);
+			obj.keyPress = byte_input.readUB(1);
+			obj.dragOut = byte_input.readUB(1);
+			byte_input.readUB(8);
 		}
-		byteStream.byteAlign();
+		byte_input.byteAlign();
 		return obj;
 	}
 	SwfInput.prototype.getFilterList = function() {
-		var byteStream = this.byteStream;
-		var result = [];
-		var numberOfFilters = byteStream.readUint8();
+		const byte_input = this.input;
+		const result = [];
+		var numberOfFilters = byte_input.readUint8();
 		while (numberOfFilters--) {
 			result.push(this.getFilter());
 		}
 		return result;
 	}
 	SwfInput.prototype.getFilter = function() {
-		var byteStream = this.byteStream;
-		var filterId = byteStream.readUint8();
+		const byte_input = this.input;
+		var filterId = byte_input.readUint8();
 		var filter;
 		switch (filterId) {
 			case 0:
@@ -2282,47 +2074,47 @@ var PinkFie = (function() {
 		return { filterId, filter };
 	}
 	SwfInput.prototype.dropShadowFilter = function() {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var rgba = this.rgba();
 		var alpha = rgba[3];
 		var color = rgba[0] << 16 | rgba[1] << 8 | rgba[2];
-		var blurX = byteStream.readFixed16();
-		var blurY = byteStream.readFixed16();
-		var angle = byteStream.readFixed16() * 180 / Math.PI;
-		var distance = byteStream.readFixed16();
-		var strength = byteStream.readFloat16() / 256;
-		var inner = (byteStream.readUB(1)) ? true : false;
-		var knockout = (byteStream.readUB(1)) ? true : false;
-		var hideObject = (byteStream.readUB(1)) ? false : true;
-		var quality = byteStream.readUB(5);
+		var blurX = byte_input.readFixed16();
+		var blurY = byte_input.readFixed16();
+		var angle = byte_input.readFixed16() * 180 / Math.PI;
+		var distance = byte_input.readFixed16();
+		var strength = byte_input.readFloat16() / 256;
+		var inner = (byte_input.readUB(1)) ? true : false;
+		var knockout = (byte_input.readUB(1)) ? true : false;
+		var hideObject = (byte_input.readUB(1)) ? false : true;
+		var quality = byte_input.readUB(5);
 		if (!strength) return null;
 		return { distance, angle, color, alpha, blurX, blurY, strength, quality, inner, knockout, hideObject };
 	}
 	SwfInput.prototype.blurFilter = function() {
-		var byteStream = this.byteStream;
-		var blurX = byteStream.readFixed16();
-		var blurY = byteStream.readFixed16();
-		var quality = byteStream.readUB(5);
-		byteStream.readUB(3);
+		const byte_input = this.input;
+		var blurX = byte_input.readFixed16();
+		var blurY = byte_input.readFixed16();
+		var quality = byte_input.readUB(5);
+		byte_input.readUB(3);
 		return { blurX, blurY, quality };
 	}
 	SwfInput.prototype.glowFilter = function() {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var rgba = this.rgba();
 		var alpha = rgba[3];
 		var color = rgba[0] << 16 | rgba[1] << 8 | rgba[2];
-		var blurX = byteStream.readFixed16();
-		var blurY = byteStream.readFixed16();
-		var strength = byteStream.readFloat16() / 256;
-		var inner = (byteStream.readUB(1)) ? true : false;
-		var knockout = (byteStream.readUB(1)) ? true : false;
-		byteStream.readUB(1);
-		var quality = byteStream.readUB(5);
+		var blurX = byte_input.readFixed16();
+		var blurY = byte_input.readFixed16();
+		var strength = byte_input.readFloat16() / 256;
+		var inner = (byte_input.readUB(1)) ? true : false;
+		var knockout = (byte_input.readUB(1)) ? true : false;
+		byte_input.readUB(1);
+		var quality = byte_input.readUB(5);
 		if (!strength) return null;
 		return { color, alpha, blurX, blurY, strength, quality, inner, knockout };
 	}
 	SwfInput.prototype.bevelFilter = function() {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var rgba;
 		rgba = this.rgba();
 		var highlightAlpha = rgba[3];
@@ -2330,31 +2122,28 @@ var PinkFie = (function() {
 		rgba = this.rgba();
 		var shadowAlpha = rgba[3];
 		var shadowColor = rgba[0] << 16 | rgba[1] << 8 | rgba[2];
-		var blurX = byteStream.readFixed16();
-		var blurY = byteStream.readFixed16();
-		var angle = byteStream.readFixed16() * 180 / Math.PI;
-		var distance = byteStream.readFixed16();
-		var strength = byteStream.readFloat16() / 256;
-		var inner = (byteStream.readUB(1)) ? true : false;
-		var knockout = (byteStream.readUB(1)) ? true : false;
-		byteStream.readUB(1);
-		var OnTop = byteStream.readUB(1);
-		var quality = byteStream.readUB(4);
+		var blurX = byte_input.readFixed16();
+		var blurY = byte_input.readFixed16();
+		var angle = byte_input.readFixed16() * 180 / Math.PI;
+		var distance = byte_input.readFixed16();
+		var strength = byte_input.readFloat16() / 256;
+		var inner = (byte_input.readUB(1)) ? true : false;
+		var knockout = (byte_input.readUB(1)) ? true : false;
+		byte_input.readUB(1);
+		var OnTop = byte_input.readUB(1);
+		var quality = byte_input.readUB(4);
 		var type = "inner";
 		if (!inner) {
-			if (OnTop) {
-				type = "full";
-			} else {
-				type = "outer";
-			}
+			if (OnTop) type = "full";
+			else type = "outer";
 		}
 		if (!strength) return null;
 		return { distance, angle, highlightColor, highlightAlpha, shadowColor, shadowAlpha, blurX, blurY, strength, quality, type, knockout };
 	}
 	SwfInput.prototype.gradientGlowFilter = function() {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var i;
-		var numColors = byteStream.readUint8();
+		var numColors = byte_input.readUint8();
 		var colors = [];
 		var alphas = [];
 		for (i = 0; i < numColors; i++) {
@@ -2363,17 +2152,17 @@ var PinkFie = (function() {
 			colors[colors.length] = rgba[0] << 16 | rgba[1] << 8 | rgba[2];
 		}
 		var ratios = [];
-		for (i = 0; i < numColors; i++) ratios[ratios.length] = byteStream.readUint8();
-		var blurX = byteStream.readFixed16();
-		var blurY = byteStream.readFixed16();
-		var angle = byteStream.readFixed16() * 180 / Math.PI;
-		var distance = byteStream.readFixed16();
-		var strength = byteStream.readFloat16() / 256;
-		var inner = (byteStream.readUB(1)) ? true : false;
-		var knockout = (byteStream.readUB(1)) ? true : false;
-		byteStream.readUB(1);
-		var onTop = byteStream.readUB(1);
-		var quality = byteStream.readUB(4);
+		for (i = 0; i < numColors; i++) ratios[ratios.length] = byte_input.readUint8();
+		var blurX = byte_input.readFixed16();
+		var blurY = byte_input.readFixed16();
+		var angle = byte_input.readFixed16() * 180 / Math.PI;
+		var distance = byte_input.readFixed16();
+		var strength = byte_input.readFloat16() / 256;
+		var inner = (byte_input.readUB(1)) ? true : false;
+		var knockout = (byte_input.readUB(1)) ? true : false;
+		byte_input.readUB(1);
+		var onTop = byte_input.readUB(1);
+		var quality = byte_input.readUB(4);
 		var type = "inner";
 		if (!inner) {
 			if (onTop) {
@@ -2386,51 +2175,48 @@ var PinkFie = (function() {
 		return { distance, angle, colors, alphas, ratios, blurX, blurY, strength, quality, type, knockout };
 	}
 	SwfInput.prototype.convolutionFilter = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.matrixX = byteStream.readUint8();
-		obj.matrixY = byteStream.readUint8();
-		obj.divisor = byteStream.readFloat16() | byteStream.readFloat16();
-		obj.bias = byteStream.readFloat16() | byteStream.readFloat16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.matrixX = byte_input.readUint8();
+		obj.matrixY = byte_input.readUint8();
+		obj.divisor = byte_input.readFloat16() | byte_input.readFloat16();
+		obj.bias = byte_input.readFloat16() | byte_input.readFloat16();
 		var count = obj.matrixX * obj.matrixY;
 		var matrixArr = [];
-		while (count--) matrixArr.push(byteStream.readUint32());
+		while (count--) matrixArr.push(byte_input.readUint32());
 		obj.defaultColor = this.rgba();
-		byteStream.readUB(6);
-		obj.clamp = byteStream.readUB(1);
-		obj.preserveAlpha = byteStream.readUB(1);
+		byte_input.readUB(6);
+		obj.clamp = byte_input.readUB(1);
+		obj.preserveAlpha = byte_input.readUB(1);
 		return obj;
 	}
 	SwfInput.prototype.gradientBevelFilter = function() {
-		var byteStream = this.byteStream;
-		var NumColors = byteStream.readUint8();
+		const byte_input = this.input;
+		var NumColors = byte_input.readUint8();
 		var i;
 		var colors = [];
 		var alphas = [];
 		for (i = 0; i < NumColors; i++) {
 			var rgba = this.rgba();
-			alphas[alphas.length] = rgba[3];
-			colors[colors.length] = rgba[0] << 16 | rgba[1] << 8 | rgba[2];
+			alphas.push(rgba[3]);
+			colors.push(rgba[0] << 16 | rgba[1] << 8 | rgba[2]);
 		}
 		var ratios = [];
-		for (i = 0; i < NumColors; i++) ratios[ratios.length] = byteStream.readUint8();
-		var blurX = byteStream.readFixed16();
-		var blurY = byteStream.readFixed16();
-		var angle = byteStream.readFixed16() * 180 / Math.PI;
-		var distance = byteStream.readFixed16();
-		var strength = byteStream.readFloat16() / 256;
-		var inner = (byteStream.readUB(1)) ? true : false;
-		var knockout = (byteStream.readUB(1)) ? true : false;
-		byteStream.readUB(1);
-		var OnTop = byteStream.readUB(1);
-		var quality = byteStream.readUB(4);
+		for (i = 0; i < NumColors; i++) ratios[ratios.length] = byte_input.readUint8();
+		var blurX = byte_input.readFixed16();
+		var blurY = byte_input.readFixed16();
+		var angle = byte_input.readFixed16() * 180 / Math.PI;
+		var distance = byte_input.readFixed16();
+		var strength = byte_input.readFloat16() / 256;
+		var inner = (byte_input.readUB(1)) ? true : false;
+		var knockout = (byte_input.readUB(1)) ? true : false;
+		byte_input.readUB(1);
+		var OnTop = byte_input.readUB(1);
+		var quality = byte_input.readUB(4);
 		var type = "inner";
 		if (!inner) {
-			if (OnTop) {
-				type = "full";
-			} else {
-				type = "outer";
-			}
+			if (OnTop) type = "full";
+			else type = "outer";
 		}
 		if (!strength) {
 			return null;
@@ -2438,15 +2224,15 @@ var PinkFie = (function() {
 		return { distance, angle, colors, alphas, ratios, blurX, blurY, strength, quality, type, knockout };
 	}
 	SwfInput.prototype.colorMatrixFilter = function() {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var matrixArr = [];
-		for (var i = 0; i < 20; i++) matrixArr.push(byteStream.readUint32());
+		for (var i = 0; i < 20; i++) matrixArr.push(byte_input.readUint32());
 		return matrixArr;
 	}
 	SwfInput.prototype.parseSoundInfo = function() {
-		var obj = {};
-		var byteStream = this.byteStream;
-		var flags = byteStream.readUint8();
+		const obj = {};
+		const byte_input = this.input;
+		var flags = byte_input.readUint8();
 		switch ((flags >> 4) & 0b11) {
 			case 0: // Event
 				obj.event = 'event';
@@ -2458,17 +2244,17 @@ var PinkFie = (function() {
 				obj.event = 'stop';
 				break;
 		}
-		if (flags & 0b1) obj.inSample = byteStream.readUint32();
-		if (flags & 0b10) obj.outSample = byteStream.readUint32();
-		if (flags & 0b100) obj.numLoops = byteStream.readUint16();
+		if (flags & 0b1) obj.inSample = byte_input.readUint32();
+		if (flags & 0b10) obj.outSample = byte_input.readUint32();
+		if (flags & 0b100) obj.numLoops = byte_input.readUint16();
 		if (flags & 0b1000) {
-			var count = byteStream.readUint8();
+			var count = byte_input.readUint8();
 			var envelope = [];
 			while (count--) {
 				envelope.push({
-					sample: byteStream.readUint32(),
-					leftVolume: byteStream.readUint16(),
-					rightVolume: byteStream.readUint16()
+					sample: byte_input.readUint32(),
+					leftVolume: byte_input.readUint16(),
+					rightVolume: byte_input.readUint16()
 				});
 			}
 			obj.envelope = envelope;
@@ -2483,37 +2269,37 @@ var PinkFie = (function() {
 	}
 	//////// Define ////////
 	SwfInput.prototype.parseDefineButton = function(ver, length) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		var endOffset = byteStream.position + length;
-		obj.id = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		var endOffset = byte_input.position + length;
+		obj.id = byte_input.readUint16();
 		var ActionOffset = 0;
 		if (ver == 2) {
-			obj.flag = byteStream.readUint8();
+			obj.flag = byte_input.readUint8();
 			obj.trackAsMenu = (obj.flag & 0b1);
-			ActionOffset = byteStream.readUint16();
+			ActionOffset = byte_input.readUint16();
 		}
 		obj.records = this.buttonRecords(ver);
-		byteStream.byteAlign();
+		byte_input.byteAlign();
 		if (ver === 1) {
-			obj.actions = this.parseAction(byteStream.readBytes(endOffset - byteStream.position));
+			obj.actions = this.parseAction(byte_input.readBytes(endOffset - byte_input.position));
 		} else {
 			if (ActionOffset > 0) {
 				obj.actions = this.buttonActions(endOffset);
 			}
 		}
-		byteStream.byteAlign();
+		byte_input.byteAlign();
 		return obj;
 	}
 	SwfInput.prototype.parseDefineButtonSound = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.buttonId = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.buttonId = byte_input.readUint16();
 
 		// Some SWFs (third-party soundboard creator?) create SWFs with a malformed
 		// DefineButtonSound tag that has fewer than all 4 sound IDs.
 		for (var i = 0; i < 4; i++) {
-			var soundId = byteStream.readUint16();
+			var soundId = byte_input.readUint16();
 			if (soundId) {
 				var soundInfo = this.parseSoundInfo();
 				switch (i) {
@@ -2539,42 +2325,42 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.parseDefineFont1 = function(length) {
-		var byteStream = this.byteStream;
-		var obj = {};
+		const byte_input = this.input;
+		const obj = {};
 		obj.version = 1;
-		var endOffset = byteStream.position + length;
+		var endOffset = byte_input.position + length;
 		var i;
-		obj.id = byteStream.readUint16();
-		var offset = byteStream.position;
-		var numGlyphs = byteStream.readUint16();
+		obj.id = byte_input.readUint16();
+		var offset = byte_input.position;
+		var numGlyphs = byte_input.readUint16();
 		var offsetTable = [];
 		offsetTable.push(numGlyphs);
 		numGlyphs /= 2;
 		numGlyphs--;
-		for (i = numGlyphs; i--;) offsetTable.push(byteStream.readUint16());
+		for (i = numGlyphs; i--;) offsetTable.push(byte_input.readUint16());
 		numGlyphs++;
 		var glyphs = [];
 		for (i = 0; i < numGlyphs; i++) {
-			byteStream.setOffset(offset + offsetTable[i], 0);
-			var numBits = byteStream.readUint8();
+			byte_input.setOffset(offset + offsetTable[i], 0);
+			var numBits = byte_input.readUint8();
 			glyphs.push(this.shapeRecords(1, {
 				fillBits: numBits >> 4,
 				lineBits: numBits & 0b1111
 			}));
 		}
 		obj.glyphs = glyphs;
-		byteStream.position = endOffset;
-		byteStream.bit_offset = 0;
+		byte_input.position = endOffset;
+		byte_input.bit_offset = 0;
 		return obj;
 	}
 	SwfInput.prototype.parseDefineFont2 = function(ver, length) {
-		var byteStream = this.byteStream;
-		var startOffset = byteStream.position;
-		var obj = {};
+		const byte_input = this.input;
+		var startOffset = byte_input.position;
+		const obj = {};
 		obj.version = ver;
-		obj.id = byteStream.readUint16();
+		obj.id = byte_input.readUint16();
 		var i = 0;
-		var fontFlags = byteStream.readUint8();
+		var fontFlags = byte_input.readUint8();
 		obj.isBold = (fontFlags) & 1;
 		obj.isItalic = (fontFlags >>> 1) & 1;
 		var isWideCodes = (fontFlags >>> 2) & 1;
@@ -2585,50 +2371,43 @@ var PinkFie = (function() {
 		obj.isSmallText = (fontFlags >>> 5) & 1;
 		obj.isShiftJIS = (fontFlags >>> 6) & 1;
 		var hasLayout = (fontFlags >>> 7) & 1;
-		obj.languageCode = this.byteStream.readUint8();
-		obj.fontNameData = byteStream.readStringWithLength();
-		var numGlyphs = byteStream.readUint16();
+		obj.languageCode = byte_input.readUint8();
+		obj.fontNameData = byte_input.readStringWithLength();
+		var numGlyphs = byte_input.readUint16();
 		obj.numGlyphs = numGlyphs;
 		if (numGlyphs == 0) {
-			if (isWideOffsets) {
-				byteStream.readUint32();
-			} else {
-				byteStream.readUint16();
-			}
+			if (isWideOffsets) byte_input.readUint32();
+			else byte_input.readUint16();
 		} else {
-			var offset = byteStream.position;
+			var offset = byte_input.position;
 			var OffsetTable = [];
 			if (isWideOffsets) {
 				for (i = numGlyphs; i--;) {
-					OffsetTable[OffsetTable.length] = byteStream.readUint32();
+					OffsetTable[OffsetTable.length] = byte_input.readUint32();
 				}
 			} else {
 				for (i = numGlyphs; i--;) {
-					OffsetTable[OffsetTable.length] = byteStream.readUint16();
+					OffsetTable[OffsetTable.length] = byte_input.readUint16();
 				}
 			}
 			var codeTableOffset;
 			if (isWideOffsets) {
-				codeTableOffset = byteStream.readUint32();
+				codeTableOffset = byte_input.readUint32();
 			} else {
-				codeTableOffset = byteStream.readUint16();
+				codeTableOffset = byte_input.readUint16();
 			}
 			var glyphShapeTable = [];
 			for (i = 0; i < numGlyphs; i++) {
-				byteStream.setOffset(offset + OffsetTable[i], 0);
+				byte_input.setOffset(offset + OffsetTable[i], 0);
 				var availableBytes;
 				if (i < (numGlyphs - 1)) {
 					availableBytes = (OffsetTable[i + 1] - OffsetTable[i]);
 				} else {
 					availableBytes = (codeTableOffset - OffsetTable[i]);
 				}
-				if (availableBytes == 0) {
-					continue;
-				}
-				var numBits = byteStream.readUint8();
-				if (availableBytes == 1) {
-					continue;
-				}
+				if (availableBytes == 0) continue;
+				var numBits = byte_input.readUint8();
+				if (availableBytes == 1) continue;
 				var numFillBits = numBits >> 4;
 				var numLineBits = numBits & 0b1111;
 				glyphShapeTable.push(this.shapeRecords(1, {
@@ -2637,44 +2416,44 @@ var PinkFie = (function() {
 				}));
 			}
 			obj.glyphs = glyphShapeTable;
-			byteStream.setOffset(offset + codeTableOffset, 0);
+			byte_input.setOffset(offset + codeTableOffset, 0);
 			var CodeTable = [];
 			if (isWideCodes) {
 				for (i = numGlyphs; i--;) {
-					CodeTable.push(byteStream.readUint16());
+					CodeTable.push(byte_input.readUint16());
 				}
 			} else {
 				for (i = numGlyphs; i--;) {
-					CodeTable.push(byteStream.readUint8());
+					CodeTable.push(byte_input.readUint8());
 				}
 			}
 			obj.codeTables = CodeTable;
 		}
 		if (hasLayout) {
 			obj.layout = {};
-			obj.layout.ascent = byteStream.readUint16();
-			obj.layout.descent = byteStream.readUint16();
-			obj.layout.leading = byteStream.readInt16();
+			obj.layout.ascent = byte_input.readUint16();
+			obj.layout.descent = byte_input.readUint16();
+			obj.layout.leading = byte_input.readInt16();
 			var advanceTable = [];
 			for (i = numGlyphs; i--;) {
-				advanceTable.push(byteStream.readInt16());
+				advanceTable.push(byte_input.readInt16());
 			}
 			obj.layout.advanceTable = advanceTable;
 			var boundsTable = [];
-			if ((byteStream.position - startOffset) < length) {
+			if ((byte_input.position - startOffset) < length) {
 				for (i = numGlyphs; i--;) {
 					boundsTable.push(this.rect());
 				}
-				byteStream.byteAlign();
+				byte_input.byteAlign();
 			}
 			obj.layout.boundsTable = boundsTable;
 			var kernings = [];
-			if ((byteStream.position - startOffset) < length) {
-				var kerningCount = byteStream.readUint16();
+			if ((byte_input.position - startOffset) < length) {
+				var kerningCount = byte_input.readUint16();
 				for (i = kerningCount; i--;) {
-					var kerningCode1 = ((isWideCodes) ? byteStream.readUint16() : byteStream.readUint8());
-					var kerningCode2 = ((isWideCodes) ? byteStream.readUint16() : byteStream.readUint8());
-					var kerningAdjustment = byteStream.readInt16();
+					var kerningCode1 = ((isWideCodes) ? byte_input.readUint16() : byte_input.readUint8());
+					var kerningCode2 = ((isWideCodes) ? byte_input.readUint16() : byte_input.readUint8());
+					var kerningAdjustment = byte_input.readInt16();
 					kernings.push({
 						leftCode: kerningCode1,
 						rightCode: kerningCode2,
@@ -2687,49 +2466,49 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.parseDefineFont4 = function(length) {
-		var byteStream = this.byteStream;
-		var startOffset = byteStream.position;
-		var obj = {};
+		const byte_input = this.input;
+		var startOffset = byte_input.position;
+		const obj = {};
 		obj.version = 4;
-		obj.id = byteStream.readUint16();
-		var flags = byteStream.readUint8();
-		obj.name = byteStream.readStringWithUntil();
+		obj.id = byte_input.readUint16();
+		var flags = byte_input.readUint8();
+		obj.name = byte_input.readStringWithUntil();
 		if (flags & 0b100) {
-			obj.data = byteStream.readBytes(length - (byteStream.position - startOffset));
+			obj.data = byte_input.readBytes(length - (byte_input.position - startOffset));
 		} else {
-			var e = (length - (byteStream.position - startOffset));
-			byteStream.position += e;
+			var e = (length - (byte_input.position - startOffset));
+			byte_input.position += e;
 		}
 		obj.isItalic = (flags & 0b10);
 		obj.isBold = (flags & 0b1);
 		return obj;
 	}
 	SwfInput.prototype.parseDefineFontInfo = function(ver, length) {
-		var byteStream = this.byteStream;
-		var endOffset = byteStream.position + length;
-		var obj = {};
-		obj.id = byteStream.readUint16();
+		const byte_input = this.input;
+		var endOffset = byte_input.position + length;
+		const obj = {};
+		obj.id = byte_input.readUint16();
 		obj.version = ver;
-		obj.fontNameData = byteStream.readStringWithLength();
-		var flags = byteStream.readUint8();
+		obj.fontNameData = byte_input.readStringWithLength();
+		var flags = byte_input.readUint8();
 		obj.isWideCodes = flags & 1;
 		obj.isBold = (flags >>> 1) & 1;
 		obj.isItalic = (flags >>> 2) & 1;
 		obj.isShiftJIS = (flags >>> 3) & 1;
 		obj.isANSI = (flags >>> 4) & 1;
 		obj.isSmallText = (flags >>> 5) & 1;
-		byteStream.byteAlign();
-		if (ver === 2) obj.languageCode = this.byteStream.readUint8();
+		byte_input.byteAlign();
+		if (ver === 2) obj.languageCode = byte_input.readUint8();
 		var codeTable = [];
-		var tLen = endOffset - byteStream.position;
+		var tLen = endOffset - byte_input.position;
 		if (obj.isWideCodes) {
 			while (tLen > 1) {
-				codeTable.push(byteStream.readUint16());
+				codeTable.push(byte_input.readUint16());
 				tLen -= 2;
 			}
 		} else {
 			while (tLen > 0) {
-				codeTable.push(byteStream.readUint8());
+				codeTable.push(byte_input.readUint8());
 				tLen--;
 			}
 		}
@@ -2737,11 +2516,11 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.parseDefineEditText = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.id = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.id = byte_input.readUint16();
 		obj.bounds = this.rect();
-		var flag1 = byteStream.readUint16();
+		var flag1 = byte_input.readUint16();
 		var hasFont = flag1 & 1;
 		var hasMaxLength = (flag1 >>> 1) & 1;
 		var hasTextColor = (flag1 >>> 2) & 1;
@@ -2758,185 +2537,144 @@ var PinkFie = (function() {
 		var hasLayout = (flag1 >>> 13) & 1;
 		var autoSize = (flag1 >>> 14) & 1;
 		var hasFontClass = (flag1 >>> 15) & 1;
-		obj.isReadOnly = isReadOnly;
-		obj.isPassword = isPassword;
-		obj.isMultiline = isMultiline;
-		obj.isWordWrap = isWordWrap;
-		obj.outlines = outlines;
-		obj.HTML = HTML;
-		obj.wasStatic = wasStatic;
-		obj.border = border;
-		obj.noSelect = noSelect;
-		obj.autoSize = autoSize;
-		if (hasFont) obj.fontID = byteStream.readUint16();
-		if (hasFontClass) obj.fontClass = byteStream.readStringWithUntil();
-		if (hasFont && !hasFontClass) obj.fontHeight = byteStream.readUint16();
+		obj.isReadOnly = isReadOnly, obj.isPassword = isPassword, obj.isMultiline = isMultiline, obj.isWordWrap = isWordWrap, obj.outlines = outlines, obj.HTML = HTML, obj.wasStatic = wasStatic, obj.border = border, obj.noSelect = noSelect, obj.autoSize = autoSize;
+		if (hasFont) obj.fontID = byte_input.readUint16();
+		if (hasFontClass) obj.fontClass = byte_input.readStringWithUntil();
+		if (hasFont && !hasFontClass) obj.fontHeight = byte_input.readUint16();
 		if (hasTextColor) obj.textColor = this.rgba();
-		if (hasMaxLength) obj.maxLength = byteStream.readUint16();
+		if (hasMaxLength) obj.maxLength = byte_input.readUint16();
 		if (hasLayout) {
 			obj.layout = {};
-			obj.layout.align = this.textAlign(byteStream.readUint8());
-			obj.layout.leftMargin = byteStream.readUint16();
-			obj.layout.rightMargin = byteStream.readUint16();
-			obj.layout.indent = byteStream.readUint16();
-			obj.layout.leading = byteStream.readInt16();
+			obj.layout.align = byte_input.readUint8();
+			obj.layout.leftMargin = byte_input.readUint16();
+			obj.layout.rightMargin = byte_input.readUint16();
+			obj.layout.indent = byte_input.readUint16();
+			obj.layout.leading = byte_input.readInt16();
 		}
-		obj.variableName = byteStream.readStringWithUntil();
-		if (hasInitialText) obj.initialText = byteStream.readStringWithUntil();
+		obj.variableName = byte_input.readStringWithUntil();
+		if (hasInitialText) obj.initialText = byte_input.readStringWithUntil();
 		return obj;
 	}
 	SwfInput.prototype.parseDefineSprite = function() {
-		var obj = {};
-		var byteStream = this.byteStream;
-		obj.id = byteStream.readUint16();
-		obj.numFrames = byteStream.readUint16();
+		const obj = {};
+		const byte_input = this.input;
+		obj.id = byte_input.readUint16();
+		obj.numFrames = byte_input.readUint16();
 		obj.tags = this.parseTags();
 		return obj;
 	}
 	SwfInput.prototype.parseDefineShape = function(version) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.id = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.id = byte_input.readUint16();
 		obj.bounds = this.rect();
 		obj.version = version;
 		if (version >= 4) {
 			obj.edgeBounds = this.rect();
-			var flags = byteStream.readUint8();
+			var flags = byte_input.readUint8();
 			obj.scalingStrokes = flags & 1;
 			obj.nonScalingStrokes = (flags >>> 1) & 1;
 			obj.fillWindingRule = (flags >>> 2) & 1;
 		}
-		obj.shapes = this.shapeWithStyle(version);
+		obj.fillStyles = this.fillStyleArray(version);
+		obj.lineStyles = this.lineStyleArray(version);
+		var numBits = byte_input.readUint8();
+		var numFillBits = numBits >> 4;
+		var numLineBits = numBits & 0b1111;
+		obj.shapeRecords = this.shapeRecords(version, {
+			fillBits: numFillBits,
+			lineBits: numLineBits
+		});
+		obj.numFillBits = numFillBits;
+		obj.numLineBits = numLineBits;
 		return obj;
 	}
 	SwfInput.prototype.parseDefineSound = function(length) {
-		var obj = {};
-		var byteStream = this.byteStream;
-		var startOffset = byteStream.position;
-		obj.id = byteStream.readUint16();
+		const obj = {};
+		const byte_input = this.input;
+		var startOffset = byte_input.position;
+		obj.id = byte_input.readUint16();
 		obj.format = this.parseSoundFormat();
-		obj.numSamples = byteStream.readUint32();
-		var sub = byteStream.position - startOffset;
+		obj.numSamples = byte_input.readUint32();
+		var sub = byte_input.position - startOffset;
 		var dataLength = length - sub;
-		obj.data = byteStream.readBytes(dataLength);
+		obj.data = byte_input.readBytes(dataLength);
 		return obj;
 	}
 	SwfInput.prototype.parseDefineText = function(ver) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.id = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.id = byte_input.readUint16();
 		obj.bounds = this.rect();
 		obj.matrix = this.matrix();
-		var GlyphBits = byteStream.readUint8();
-		var AdvanceBits = byteStream.readUint8();
+		var GlyphBits = byte_input.readUint8();
+		var AdvanceBits = byte_input.readUint8();
 		obj.records = this.getTextRecords(ver, GlyphBits, AdvanceBits);
 		return obj;
 	}
 	SwfInput.prototype.parseDefineBinaryData = function(length) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.id = byteStream.readUint16();
-		byteStream.readUint32();
-		obj.data = byteStream.readBytes(length - 6);
+		const byte_input = this.input;
+		const obj = {};
+		obj.id = byte_input.readUint16();
+		byte_input.readUint32();
+		obj.data = byte_input.readBytes(length - 6);
 		return obj;
 	}
 	SwfInput.prototype.parseDefineScalingGrid = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.characterId = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.characterId = byte_input.readUint16();
 		obj.splitter = this.rect();
-		byteStream.byteAlign();
+		byte_input.byteAlign();
 		return obj;
 	}
 	SwfInput.prototype.parseDefineSceneAndFrameLabelData = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		var sceneCount = byteStream.readEncodedU32();
+		const byte_input = this.input;
+		const obj = {};
+		var sceneCount = byte_input.readEncodedU32();
 		obj.sceneInfo = [];
 		while (sceneCount--) {
 			obj.sceneInfo.push({
-				offset: byteStream.readEncodedU32(),
-				name: byteStream.readStringWithUntil()
+				offset: byte_input.readEncodedU32(),
+				name: byte_input.readStringWithUntil()
 			});
 		}
-		var frameLabelCount = byteStream.readEncodedU32();
+		var frameLabelCount = byte_input.readEncodedU32();
 		obj.frameInfo = [];
 		while (frameLabelCount--) {
 			obj.frameInfo.push({
-				num: byteStream.readEncodedU32(),
-				label: byteStream.readStringWithUntil()
+				num: byte_input.readEncodedU32(),
+				label: byte_input.readStringWithUntil()
 			});
 		}
 		return obj;
 	}
 	SwfInput.prototype.parseDefineVideoStream = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.id = byteStream.readUint16();
-		obj.numFrames = byteStream.readUint16();
-		obj.width = byteStream.readUint16();
-		obj.height = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.id = byte_input.readUint16();
+		obj.numFrames = byte_input.readUint16();
+		obj.width = byte_input.readUint16();
+		obj.height = byte_input.readUint16();
 		// TODO(Herschel): Check SWF version.
-		var flags = byteStream.readUint8();
-		switch (byteStream.readUint8()) {
-			case 0: // None
-				obj.codec = "none";
-				break;
-			case 2: // H263
-				obj.codec = "H263";
-				break;
-			case 3: // ScreenVideo
-				obj.codec = "ScreenVideo";
-				break;
-			case 4: // Vp6
-				obj.codec = "Vp6";
-				break;
-			case 5: // Vp6WithAlpha
-				obj.codec = "Vp6WithAlpha";
-				break;
-			case 6: // ScreenVideoV2
-				obj.codec = "ScreenVideoV2";
-				break;
-			default:
-				this.emitMessage("Invalid video codec.", "error");
-		}
-		switch ((flags >> 1) & 0b111) {
-			case 0: // None
-				obj.deblocking = "useVideoPacketValue";
-				break;
-			case 1: // None
-				obj.deblocking = "none";
-				break;
-			case 2: // Level1
-				obj.deblocking = "Level1";
-				break;
-			case 3: // Level2
-				obj.deblocking = "Level2";
-				break;
-			case 4: // Level3
-				obj.deblocking = "Level3";
-				break;
-			case 5: // Level4
-				obj.deblocking = "Level4";
-				break;
-			default:
-				this.emitMessage("Invalid video deblocking value.", "error");
-		}
+		var flags = byte_input.readUint8();
+		obj.codec = SwfTypes.video.codec[byte_input.readUint8()] || this.emitMessage("Invalid video codec.", "error");
+		obj.deblocking = SwfTypes.video.deblocking[(flags >> 1) & 0b111] || this.emitMessage("Invalid video deblocking value.", "error");
 		obj.isSmoothed = flags & 0b1;
 		return obj;
 	}
 	SwfInput.prototype.parseDefineBitsLossLess = function(ver, length) {
-		var obj = {};
-		var byteStream = this.byteStream;
-		var startOffset = byteStream.position;
-		obj.id = byteStream.readUint16();
+		const obj = {};
+		const byte_input = this.input;
+		var startOffset = byte_input.position;
+		obj.id = byte_input.readUint16();
 		obj.version = ver;
-		var format = byteStream.readUint8();
-		obj.width = byteStream.readUint16();
-		obj.height = byteStream.readUint16();
+		var format = byte_input.readUint8();
+		obj.width = byte_input.readUint16();
+		obj.height = byte_input.readUint16();
 		switch (format) {
 			case 3: // ColorMap8
-				obj.numColors = byteStream.readUint8();
+				obj.numColors = byte_input.readUint8();
 				break;
 			case 4: // Rgb15
 			case 5: // Rgb32
@@ -2944,33 +2682,33 @@ var PinkFie = (function() {
 			default:
 				this.emitMessage("Invalid bitmap format: " + format, "error");
 		}
-		var sub = byteStream.position - startOffset;
-		obj.data = byteStream.readBytes(length - sub);
+		var sub = byte_input.position - startOffset;
+		obj.data = byte_input.readBytes(length - sub);
 		obj.format = format;
 		return obj;
 	}
 	SwfInput.prototype.parseDefineFontName = function() {
-		var obj = {};
-		var byteStream = this.byteStream;
-		obj.id = byteStream.readUint16();
-		obj.name = byteStream.readStringWithUntil();
-		obj.copyrightInfo = byteStream.readStringWithUntil();
+		const obj = {};
+		const byte_input = this.input;
+		obj.id = byte_input.readUint16();
+		obj.name = byte_input.readStringWithUntil();
+		obj.copyrightInfo = byte_input.readStringWithUntil();
 		return obj;
 	}
 	SwfInput.prototype.parseDefineBits = function(ver, length) {
-		var obj = {};
-		var byteStream = this.byteStream;
-		var startOffset = byteStream.position;
-		obj.id = byteStream.readUint16();
+		const obj = {};
+		const byte_input = this.input;
+		var startOffset = byte_input.position;
+		obj.id = byte_input.readUint16();
 		if (ver <= 2) {
-			obj.data = byteStream.readBytes(length - 2);
+			obj.data = byte_input.readBytes(length - 2);
 		} else {
-			var dataSize = byteStream.readUint32();
+			var dataSize = byte_input.readUint32();
 			var deblocking = null;
-			if (ver >= 4) deblocking = byteStream.readUint16();
-			var data = byteStream.readBytes(dataSize);
-			var sub = byteStream.position - startOffset;
-			var alphaData = byteStream.readBytes(length - sub);
+			if (ver >= 4) deblocking = byte_input.readUint16();
+			var data = byte_input.readBytes(dataSize);
+			var sub = byte_input.position - startOffset;
+			var alphaData = byte_input.readBytes(length - sub);
 			obj.data = data;
 			obj.alphaData = alphaData;
 			obj.deblocking = deblocking;
@@ -2978,36 +2716,36 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.parseDefineButtonCxform = function(length) {
-		var byteStream = this.byteStream;
-		var startOffset = byteStream.position;
-		var obj = {};
+		const byte_input = this.input;
+		const startOffset = byte_input.position;
+		const obj = {};
 		// SWF19 is incorrect here. You can have >1 color transforms in this tag. They apply
 		// to the characters in a button in sequence.
-		obj.id = byteStream.readUint16();
+		obj.id = byte_input.readUint16();
 		var colorTransforms = [];
 
 		// Read all color transforms.
-		while ((byteStream.position - startOffset) < length) {
+		while ((byte_input.position - startOffset) < length) {
 			colorTransforms.push(this.colorTransform(false));
-			byteStream.byteAlign();
+			byte_input.byteAlign();
 		}
 		obj.colorTransforms = colorTransforms;
 		return obj;
 	}
 	SwfInput.prototype.parseDefineMorphShape = function(ver) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.id = byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		obj.id = byte_input.readUint16();
 		obj.startBounds = this.rect();
 		obj.endBounds = this.rect();
 		if (ver == 2) {
 			obj.startEdgeBounds = this.rect();
 			obj.endEdgeBounds = this.rect();
-			var flags = byteStream.readUint8();
+			var flags = byte_input.readUint8();
 			obj.isScalingStrokes = flags & 1;
 			obj.isNonScalingStrokes = (flags >>> 1) & 1;
 		}
-		byteStream.readUint32(); // Offset to EndEdges.
+		byte_input.readUint32(); // Offset to EndEdges.
 		obj.morphFillStyles = this.morphFillStyleArray(ver);
 		obj.morphLineStyles = this.morphLineStyleArray(ver);
 
@@ -3017,45 +2755,41 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.parseDefineFontAlignZones = function(length) {
-		var byteStream = this.byteStream;
+		const byte_input = this.input;
 		var tag = {};
-		var startOffset = byteStream.position;
-		tag.id = byteStream.readUint16();
-		tag.thickness = byteStream.readUint8();
+		var startOffset = byte_input.position;
+		tag.id = byte_input.readUint16();
+		tag.thickness = byte_input.readUint8();
 		var zones = [];
-		while (byteStream.position < (startOffset + length)) {
-			byteStream.readUint8(); // Always 2.
+		while (byte_input.position < (startOffset + length)) {
+			byte_input.readUint8(); // Always 2.
 			zones.push({
-				left: byteStream.readInt16(),
-				width: byteStream.readInt16(),
-				bottom: byteStream.readInt16(),
-				height: byteStream.readInt16()
+				left: byte_input.readInt16(),
+				width: byte_input.readInt16(),
+				bottom: byte_input.readInt16(),
+				height: byte_input.readInt16()
 			});
-			byteStream.readUint8(); // Always 0b000000_11 (2 dimensions).
+			byte_input.readUint8(); // Always 0b000000_11 (2 dimensions).
 		}
 		tag.zones = zones;
 		return tag;
 	}
 	SwfInput.prototype.parsePlaceObject = function(ver, length) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		var startOffset = byteStream.position;
+		const byte_input = this.input;
+		const obj = {};
+		var startOffset = byte_input.position;
 		obj.version = ver;
 		if (ver === 1) {
 			obj.isMove = false;
-			obj.characterId = byteStream.readUint16();
-			obj.depth = byteStream.readUint16();
+			obj.characterId = byte_input.readUint16();
+			obj.depth = byte_input.readUint16();
 			obj.matrix = this.matrix();
-			byteStream.byteAlign();
-			if ((byteStream.position - startOffset) < length) obj.colorTransform = this.colorTransform();
+			byte_input.byteAlign();
+			if ((byte_input.position - startOffset) < length) obj.colorTransform = this.colorTransform();
 		} else {
-			var flags;
-			if (ver >= 3) {
-				flags = byteStream.readUint16();
-			} else {
-				flags = byteStream.readUint8();
-			}
-			obj.depth = byteStream.readUint16();
+			var flags = (ver >= 3) ? byte_input.readUint16() : byte_input.readUint8();
+			
+			obj.depth = byte_input.readUint16();
 
 			var isMove = (flags & 1);
 			var hasCharacter = (flags >>> 1) & 1;
@@ -3080,95 +2814,90 @@ var PinkFie = (function() {
 			// you use the class name only if a character ID isn't present.
 			// But what is the case where we'd have an image without either HasCharacterID or HasClassName set?
 			obj.hasImage = hasImage;
-			if ((hasClassName) || ((obj.hasImage) && !hasCharacter)) obj.className = byteStream.readStringWithUntil();
+			if ((hasClassName) || ((obj.hasImage) && !hasCharacter)) obj.className = byte_input.readStringWithUntil();
 			obj.isMove = isMove;
-			if (hasCharacter) obj.characterId = byteStream.readUint16();
+			if (hasCharacter) obj.characterId = byte_input.readUint16();
 			if (!obj.isMove && !hasCharacter) this.emitMessage("Invalid PlaceObject type", "error");
 			if (hasMatrix) obj.matrix = this.matrix();
 			if (hasColorTransform) obj.colorTransform = this.colorTransform(true);
-			if (hasRatio) obj.ratio = byteStream.readUint16();
-			if (hasName) obj.name = byteStream.readStringWithUntil();
-			if (hasClipDepth) obj.clipDepth = byteStream.readUint16();
+			if (hasRatio) obj.ratio = byte_input.readUint16();
+			if (hasName) obj.name = byte_input.readStringWithUntil();
+			if (hasClipDepth) obj.clipDepth = byte_input.readUint16();
 			
 			// PlaceObject3
 			if (hasFilters) obj.filters = this.getFilterList();
-			if (hasBlendMode) obj.blendMode = this.parseBlendMode();
-			if (hasBitmapCache) obj.bitmapCache = byteStream.readUint8();
-			if (hasVisible) obj.visible = byteStream.readUint8();
+			if (hasBlendMode) obj.blendMode = byte_input.readUint8();
+			if (hasBitmapCache) obj.bitmapCache = byte_input.readUint8();
+			if (hasVisible) obj.visible = byte_input.readUint8();
 			if (hasBackgroundColor) obj.backgroundColor = this.rgba();
 			if (hasClipActions) obj.clipActions = this.parseClipActions(startOffset, length);
 			
 			// PlaceObject4
 			if (ver === 4) {
-				byteStream.byteAlign();
-				obj.amfData = byteStream.readBytes((length - (byteStream.position - startOffset)));
+				byte_input.byteAlign();
+				obj.amfData = byte_input.readBytes((length - (byte_input.position - startOffset)));
 			}
 		}
-		byteStream.byteAlign();
+		byte_input.byteAlign();
 		return obj;
 	}
 	SwfInput.prototype.parseDoAction = function(length) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.action = this.parseAction(byteStream.readBytes(length));
+		const byte_input = this.input;
+		const obj = {};
+		obj.action = this.parseAction(byte_input.readBytes(length));
 		return obj;
 	}
 	SwfInput.prototype.parseDoInitAction = function(length) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.spriteId = byteStream.readUint16();
-		obj.action = this.parseAction(byteStream.readBytes(length - 2));
+		const byte_input = this.input;
+		const obj = {};
+		obj.spriteId = byte_input.readUint16();
+		obj.action = this.parseAction(byte_input.readBytes(length - 2));
 		return obj;
 	}
 	SwfInput.prototype.parseDoABC = function(ver, length) {
-		var byteStream = this.byteStream;
-		var startOffset = byteStream.position;
-		var obj = {};
+		const byte_input = this.input;
+		var startOffset = byte_input.position;
+		const obj = {};
 		obj.version = ver;
 		if (ver == 2) {
-			obj.flags = byteStream.readUint32();
+			obj.flags = byte_input.readUint32();
 			obj.lazyInitialize = obj.flags & 1;
-			obj.name = byteStream.readStringWithUntil();
+			obj.name = byte_input.readStringWithUntil();
 		}
-		var offset = (length - (byteStream.position - startOffset));
-		try {
-			obj.abc = this.parseABC(byteStream.readBytes(offset));
-		} catch (e) {
-			console.log(offset, ver, e);
-			obj.abc = e;
-		}
+		var offset = (length - (byte_input.position - startOffset));
+		obj.abc = this.parseABC(byte_input.readBytes(offset));
 		return obj;
 	}
 	SwfInput.prototype.parseProductInfo = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.productID = byteStream.readUint32();
-		obj.edition = byteStream.readUint32();
-		obj.majorVersion = byteStream.readUint8();
-		obj.minorVersion = byteStream.readUint8();
-		obj.buildBumber = byteStream.readUint64();
-		obj.compilationDate = byteStream.readUint64();
+		const byte_input = this.input;
+		const obj = {};
+		obj.productID = byte_input.readUint32();
+		obj.edition = byte_input.readUint32();
+		obj.majorVersion = byte_input.readUint8();
+		obj.minorVersion = byte_input.readUint8();
+		obj.buildBumber = byte_input.readUint64();
+		obj.compilationDate = byte_input.readUint64();
 		return obj;
 	}
 	SwfInput.prototype.parseDebugID = function(length) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.debugId = byteStream.readUint8();
-		byteStream.position--;
-		byteStream.position += length;
+		const byte_input = this.input;
+		const obj = {};
+		obj.debugId = byte_input.readUint8();
+		byte_input.position--;
+		byte_input.position += length;
 		return obj;
 	}
 	SwfInput.prototype.parseNameCharacter = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.id = byteStream.readUint16();
-		obj.name = byteStream.readStringWithUntil();
+		const byte_input = this.input;
+		const obj = {};
+		obj.id = byte_input.readUint16();
+		obj.name = byte_input.readStringWithUntil();
 		return obj;
 	}
 	SwfInput.prototype.parseFileAttributes = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
-		var flags = byteStream.readUint32();
+		const byte_input = this.input;
+		const obj = {};
+		var flags = byte_input.readUint32();
 		obj.useDirectBlit = (flags >> 6) & 1;
 		obj.useGPU = (flags >> 5) & 1;
 		obj.hasMetadata = (flags >> 4) & 1;
@@ -3177,63 +2906,63 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.parseSymbolClass = function() {
-		var byteStream = this.byteStream;
-		var obj = {};
+		const byte_input = this.input;
+		const obj = {};
 		var symbols = [];
-		var count = byteStream.readUint16();
+		var count = byte_input.readUint16();
 		while (count--) {
 			symbols.push({
-				tagId: byteStream.readUint16(),
-				path: byteStream.readStringWithUntil()
+				tagId: byte_input.readUint16(),
+				path: byte_input.readStringWithUntil()
 			});
 		}
 		obj.symbols = symbols;
 		return obj;
 	}
 	SwfInput.prototype.parseFrameLabel = function(length) {
-		var byteStream = this.byteStream;
-		var startOffset = byteStream.position;
-		var obj = {};
-		obj.label = byteStream.readStringWithUntil();
+		const byte_input = this.input;
+		var startOffset = byte_input.position;
+		const obj = {};
+		obj.label = byte_input.readStringWithUntil();
 		var isAnchor = false;
-		if (this._swfVersion >= 6 && (byteStream.position - startOffset) !== length) {
-			isAnchor = byteStream.readUint8() != 0;
-		}
+		if (this._swfVersion >= 6 && (byte_input.position - startOffset) !== length) isAnchor = byte_input.readUint8() != 0;
 		obj.isAnchor = isAnchor;
 		return obj;
 	}
 	SwfInput.prototype.parseRemoveObject = function(ver) {
-		var obj = {};
-		if (ver == 1) obj.characterId = this.byteStream.readUint16();
-		obj.depth = this.byteStream.readUint16();
+		const byte_input = this.input;
+		const obj = {};
+		if (ver == 1) obj.characterId = byte_input.readUint16();
+		obj.depth = byte_input.readUint16();
 		return obj;
 	}
 	SwfInput.prototype.parseExportAssets = function() {
-		var obj = {};
-		var byteStream = this.byteStream;
-		var count = byteStream.readUint16();
+		const obj = {};
+		const byte_input = this.input;
+		var count = byte_input.readUint16();
 		var packages = [];
 		while (count--) {
-			var id = byteStream.readUint16();
-			var name = byteStream.readStringWithUntil();
+			var id = byte_input.readUint16();
+			var name = byte_input.readStringWithUntil();
 			packages.push([id, name]);
 		}
 		obj.packages = packages;
 		return obj;
 	}
 	SwfInput.prototype.parseImportAssets = function(ver) {
-		var obj = {};
-		var url = this.byteStream.readStringWithUntil();
+		const byte_input = this.input;
+		const obj = {};
+		var url = byte_input.readStringWithUntil();
 		if (ver == 2) {
-			this.byteStream.readUint8();
-			this.byteStream.readUint8();
+			byte_input.readUint8();
+			byte_input.readUint8();
 		}
-		var num_imports = this.byteStream.readUint16();
+		var num_imports = byte_input.readUint16();
 		var imports = [];
 		while (num_imports--) {
 			imports.push({
-				id: this.byteStream.readUint16(),
-				name: this.byteStream.readStringWithUntil()
+				id: byte_input.readUint16(),
+				name: byte_input.readStringWithUntil()
 			});
 		}
 		obj.url = url;
@@ -3241,51 +2970,49 @@ var PinkFie = (function() {
 		return obj;
 	}
 	SwfInput.prototype.parseStartSound = function(ver) {
-		var byteStream = this.byteStream;
-		var obj = {};
+		const byte_input = this.input;
+		const obj = {};
 		if (ver == 2) {
-			obj.className = byteStream.readStringWithUntil();
+			obj.className = byte_input.readStringWithUntil();
 		} else {
-			obj.id = byteStream.readUint16();
+			obj.id = byte_input.readUint16();
 		}
 		obj.info = this.parseSoundInfo();
 		return obj;
 	}
 	SwfInput.prototype.parseSoundStreamHead = function(ver) {
-		var obj = {};
-		var byteStream = this.byteStream;
+		const obj = {};
+		const byte_input = this.input;
 		obj.version = ver;
 		obj.playback = this.parseSoundFormat();
 		obj.stream = this.parseSoundFormat();
-		obj.samplePerBlock = byteStream.readUint16();
-		if (obj.stream.compression === "MP3") {
-			obj.latencySeek = byteStream.readInt16();
-		}
-		byteStream.byteAlign();
+		obj.samplePerBlock = byte_input.readUint16();
+		if (obj.stream.compression === "MP3") obj.latencySeek = byte_input.readInt16();
+		byte_input.byteAlign();
 		return obj;
 	}
 	SwfInput.prototype.parseSoundStreamBlock = function(length) {
-		var byteStream = this.byteStream;
-		var obj = {};
-		obj.compressed = byteStream.readBytes(length);
+		const byte_input = this.input;
+		const obj = {};
+		obj.compressed = byte_input.readBytes(length);
 		return obj;
 	}
 	SwfInput.prototype.parseVideoFrame = function(length) {
-		var byteStream = this.byteStream;
-		var startOffset = byteStream.position;
-		var obj = {};
-		obj.streamId = byteStream.readUint16();
-		byteStream.readUint16();
-		var sub = byteStream.position - startOffset;
+		const byte_input = this.input;
+		var startOffset = byte_input.position;
+		const obj = {};
+		obj.streamId = byte_input.readUint16();
+		obj.frameNum = byte_input.readUint16();
+		var sub = byte_input.position - startOffset;
 		var dataLength = length - sub;
-		obj.data = byteStream.readBytes(dataLength);
+		obj.data = byte_input.readBytes(dataLength);
 		return obj;
 	}
 	SwfInput.prototype.parseCSMTextSettings = function() {
-		var obj = {};
-		var byteStream = this.byteStream;
-		obj.id = byteStream.readUint16();
-		var flags = byteStream.readUint8();
+		const obj = {};
+		const byte_input = this.input;
+		obj.id = byte_input.readUint16();
+		var flags = byte_input.readUint8();
 		obj.useAdvancedRendering = flags & 0b01000000;
 		switch ((flags >> 3) & 0b11) {
 			case 0:
@@ -3300,25 +3027,21 @@ var PinkFie = (function() {
 			default:
 				this.emitMessage("Invalid text grid fitting", "error");
 		}
-		obj.thickness = byteStream.readFloat32();
-		obj.sharpness = byteStream.readFloat32();
-		byteStream.readUint8();
+		obj.thickness = byte_input.readFloat32();
+		obj.sharpness = byte_input.readFloat32();
+		byte_input.readUint8();
 		return obj;
 	}
 	const H263Decoder = function() {
 	}
 	H263Decoder.prototype.decodeFrame = function(encodedFrame) {
-		var byteArray = new ByteStream(encodedFrame.data);
+		var byteArray = new ByteInput(encodedFrame.data);
 		let pictureStartCode = byteArray.readUB(17);
 		let version = byteArray.readUB(5);
 		let temporalReference = byteArray.readUB(8);
 		let pictureSize = byteArray.readUB(3);
-		let customWidth = 0;
-		if ((pictureSize & 1) == 0) {
-			customWidth = byteArray.readUB(8);
-		} else if ((pictureSize & 1) == 1) {
-			customWidth = byteArray.readUB(16);
-		}
+		let customWidth = (pictureSize & 0b1) ? byteArray.readUB(16) : byteArray.readUB(8);
+		let customHeight = (pictureSize & 0b1) ? byteArray.readUB(16) : byteArray.readUB(8);
 		let pictureType = byteArray.readUB(2);
 		let deblocking = byteArray.readUB(1);
 		let quantizer = byteArray.readUB(5);
@@ -3337,21 +3060,12 @@ var PinkFie = (function() {
 	ScreenVideoDecoder.prototype.decodeFrame = function(encodedFrame) {
 		
 	}
-	const VP6Decoder = function(isAlpha) {
+	const VP6Decoder = function(width, height, isAlpha) {
+		this.width = width;
+		this.height = height;
 		this.isAlpha = isAlpha;
 	}
 	VP6Decoder.prototype.decodeFrame = function(encodedFrame) {
-		var byteArray = new ByteStream(encodedFrame.data);
-		let horizontalAdjustment = byteArray.readUB(4);
-		let verticalAdjustment = byteArray.readUB(4);
-		/*let data = [];
-		try {
-			while(true) {
-				data.push(byteArray.readUB(8));
-			}
-		} catch(e) {
-		}*/
-		//console.log(new Uint8Array(data));
 	}
 	const Glyph = function(shapeHandle) {
 		this.shapeHandle = shapeHandle;
@@ -3373,7 +3087,7 @@ var PinkFie = (function() {
 	}
 	FlashFont.fromSwfTag = function(renderer, tag) {
 		var f = new FlashFont();
-		f.scale = (tag.version >= 3) ? 20480.0 : 1024.0;
+		f.scale = (tag.version >= 3) ? 20480 : 1024;
 		f.initGlyphs(renderer, tag.glyphs);
 		return f;
 	}
@@ -3469,7 +3183,7 @@ var PinkFie = (function() {
 	SwfSlice.from = function(movie) {
 		var h = new SwfSlice(movie);
 		h.start = 0;
-		h.end = movie.dataStream.getLength();
+		h.end = movie.dataStream.length;
 		return h;
 	}
 	Object.defineProperties(SwfSlice.prototype, {
@@ -3486,43 +3200,48 @@ var PinkFie = (function() {
 		return r;
 	}
 	SwfSlice.prototype.resizeToReader = function(reader, size) {
-		let outer_offset = this.start + reader.byteStream.position;
+		let outer_offset = this.start + reader.input.position;
 		let new_start = outer_offset;
 		let new_end = outer_offset + size;
-
 		var g = new SwfSlice(this.movie);
 		g.start = new_start;
 		g.end = new_end;
 		return g;
 	}
 	const decodeTags = function(reader, tagCallback) {
-		while (reader.byteStream.getBytesAvailable() > 0) {
+		while (reader.input.bytesAvailable > 0) {
 			var { tagcode, length } = reader.parseTagCodeLength();
-			var startO = reader.byteStream.position;
+			var startO = reader.input.position;
 			var c = tagCallback(reader, tagcode, length);
-			var s = (length - (reader.byteStream.position - startO));
-			reader.byteStream.position += s;
+			var s = (length - (reader.input.position - startO));
+			reader.input.position += s;
 			if (c == true) break;
 		}
+		return true;
 	};
 	const SoundTransform = function() {
 	}
-	const DisplayObjectBase = function() {
-		this.matrix = [1, 0, 0, 1, 0, 0];
-		this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
-		this.blendMode = null;
-		this.filters = [];
+	const renderBase = function(context) {
+		context.transformStack.stackPush(this.matrix(), this.colorTransform());
+		this.renderSelf(context);
+		context.transformStack.stackPop();
+	}
+	const DisplayObject = function() {
+		this._matrix = [1, 0, 0, 1, 0, 0];
+		this._colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
+		this._blendMode = null;
+		this._filters = [];
 
-		this.parent = null;
-		this.placeFrame = 0;
-		this.depth = 0;
-		this.name = "";
-		this.clipDepth = 0;
-		this.nextAvm1Clip = null;
-		this.soundTransform = new SoundTransform();
-		this.masker = null;
-		this.maskee = null;
-		this.opaqueBackground = [0, 0, 0, 0];
+		this._parent = null;
+		this._placeFrame = 0;
+		this._depth = 0;
+		this._name = "";
+		this._clipDepth = 0;
+		this._nextAvm1Clip = null;
+		this._soundTransform = new SoundTransform();
+		this._masker = null;
+		this._maskee = null;
+		this._opaqueBackground = [0, 0, 0, 0];
 
 		/// flags
 		this.AVM1_REMOVED = false;
@@ -3538,162 +3257,106 @@ var PinkFie = (function() {
 		this.HAS_EXPLICIT_NAME = false;
 		this.SKIP_NEXT_ENTER_FRAME = false;
 		this.CACHE_INVALIDATED = false;
-	}
-	DisplayObjectBase.prototype.clone = function() {
-		const clone = new DisplayObjectBase();
-		clone.matrix = cloneArray(this.matrix);
-		clone.colorTransform = cloneArray(this.colorTransform);
-		clone.blendMode = this.blendMode;
-		clone.filters = [];
 
-		clone.parent = this.parent;
-		clone.placeFrame = this.placeFrame;
-		clone.depth = this.depth;
-		clone.name = this.name;
-		clone.clipDepth = this.clipDepth;
-		clone.nextAvm1Clip = this.nextAvm1Clip;
-		clone.soundTransform = new SoundTransform();
-		clone.masker = this.masker;
-		clone.maskee = this.maskee;
-		clone.opaqueBackground = cloneArray(this.opaqueBackground);
-
-		clone.AVM1_REMOVED = this.AVM1_REMOVED;
-		clone.VISIBLE = this.VISIBLE;
-		clone.SCALE_ROTATION_CACHED = this.SCALE_ROTATION_CACHED;
-		clone.TRANSFORMED_BY_SCRIPT = this.TRANSFORMED_BY_SCRIPT;
-		clone.PLACED_BY_SCRIPT = this.PLACED_BY_SCRIPT;
-		clone.INSTANTIATED_BY_TIMELINE = this.INSTANTIATED_BY_TIMELINE;
-		clone.IS_ROOT = this.IS_ROOT;
-		clone.LOCK_ROOT = this.LOCK_ROOT;
-		clone.CACHE_AS_BITMAP = this.CACHE_AS_BITMAP;
-		clone.HAS_SCROLL_RECT = this.HAS_SCROLL_RECT;
-		clone.HAS_EXPLICIT_NAME = this.HAS_EXPLICIT_NAME;
-		clone.SKIP_NEXT_ENTER_FRAME = this.SKIP_NEXT_ENTER_FRAME;
-		clone.CACHE_INVALIDATED = this.CACHE_INVALIDATED;
-
-		return clone;
-	}
-	DisplayObjectBase.prototype.getParent = function() {
-		return this.parent;
-	}
-	DisplayObjectBase.prototype.setParent = function(parent) {
-		this.parent = parent;
-	}
-	DisplayObjectBase.prototype.applyColorTransform = function(colorTransform) {
-		this.colorTransform[0] = colorTransform[0];
-		this.colorTransform[1] = colorTransform[1];
-		this.colorTransform[2] = colorTransform[2];
-		this.colorTransform[3] = colorTransform[3];
-		this.colorTransform[4] = colorTransform[4];
-		this.colorTransform[5] = colorTransform[5];
-		this.colorTransform[6] = colorTransform[6];
-		this.colorTransform[7] = colorTransform[7];
-	}
-	DisplayObjectBase.prototype.applyMatrix = function(matrix) {
-		this.matrix[0] = matrix[0];
-		this.matrix[1] = matrix[1];
-		this.matrix[2] = matrix[2];
-		this.matrix[3] = matrix[3];
-		this.matrix[4] = matrix[4];
-		this.matrix[5] = matrix[5];
-	}
-	const renderBase = function(context) {
-		context.transformStack.stackPush(this.matrix(), this.colorTransform());
-		this.renderSelf(context);
-		context.transformStack.stackPop();
-	}
-	const DisplayObject = function() {
 		this.displayType = "Base";
 		this.coll = [0, 0, 0, 1];
 		this._debug_colorDisplayType = [0, 0, 0, 1];
 	}
-	DisplayObject.createBase = function() {
-		return new DisplayObjectBase();
-	}
-	DisplayObject.prototype.getBase = function() {}
 	DisplayObject.prototype.matrix = function() {
-		return this.getBase().matrix;
+		return this._matrix;
 	}
 	DisplayObject.prototype.colorTransform = function() {
-		return this.getBase().colorTransform;
+		return this._colorTransform;
 	}
 	DisplayObject.prototype.applyColorTransform = function(colorTransform) {
-		this.getBase().applyColorTransform(colorTransform);
+		this._colorTransform[0] = colorTransform[0];
+		this._colorTransform[1] = colorTransform[1];
+		this._colorTransform[2] = colorTransform[2];
+		this._colorTransform[3] = colorTransform[3];
+		this._colorTransform[4] = colorTransform[4];
+		this._colorTransform[5] = colorTransform[5];
+		this._colorTransform[6] = colorTransform[6];
+		this._colorTransform[7] = colorTransform[7];
 	}
 	DisplayObject.prototype.applyMatrix = function(matrix) {
-		this.getBase().applyMatrix(matrix);
+		this._matrix[0] = matrix[0];
+		this._matrix[1] = matrix[1];
+		this._matrix[2] = matrix[2];
+		this._matrix[3] = matrix[3];
+		this._matrix[4] = matrix[4];
+		this._matrix[5] = matrix[5];
 	}
 	DisplayObject.prototype.depth = function() {
-		return this.getBase().depth;
+		return this._depth;
 	}
 	DisplayObject.prototype.setDepth = function(value) {
-		this.getBase().depth = value;
+		this._depth = value;
 	}
 	DisplayObject.prototype.clipDepth = function() {
-		return this.getBase().clipDepth;
+		return this._clipDepth;
 	}
 	DisplayObject.prototype.setClipDepth = function(value) {
-		this.getBase().clipDepth = value;
+		this._clipDepth = value;
 	}
 	DisplayObject.prototype.placeFrame = function() {
-		return this.getBase().placeFrame;
+		return this._placeFrame;
 	}
 	DisplayObject.prototype.setPlaceFrame = function(frame) {
-		this.getBase().placeFrame = frame;
+		this._placeFrame = frame;
 	}
 	DisplayObject.prototype.getParent = function() {
-		return this.getBase().getParent();
+		return this._parent;
 	}
 	DisplayObject.prototype.setParent = function(context, parent) {
-		this.getBase().setParent(parent);
+		this._parent = parent;
 	}
 	DisplayObject.prototype.name = function() {
-		return this.getBase().name;
+		return this._name;
 	}
 	DisplayObject.prototype.setName = function(name) {
-		this.getBase().name = name;
+		this._name = name;
 	}
 	DisplayObject.prototype.nextAvm1Clip = function() {
-		return this.getBase().nextAvm1Clip;
+		return this._nextAvm1Clip;
 	}
 	DisplayObject.prototype.setNextAvm1Clip = function(value) {
-		this.getBase().nextAvm1Clip = value;
+		this._nextAvm1Clip = value;
 	}
 	DisplayObject.prototype.visible = function() {
-		return this.getBase().VISIBLE;
+		return this.VISIBLE;
 	}
 	DisplayObject.prototype.setVisible = function(value) {
-		this.getBase().VISIBLE = value;
+		this.VISIBLE = value;
 	}
 	DisplayObject.prototype.isRoot = function() {
-		return this.getBase().IS_ROOT;
+		return this.IS_ROOT;
 	}
 	DisplayObject.prototype.setIsRoot = function(bool) {
-		this.getBase().IS_ROOT = bool;
+		this.IS_ROOT = bool;
 	}
 	DisplayObject.prototype.avm1Removed = function() {
-		return this.getBase().AVM1_REMOVED;
+		return this.AVM1_REMOVED;
 	}
 	DisplayObject.prototype.setAvm1Removed = function(value) {
-		this.getBase().AVM1_REMOVED = value;
+		this.AVM1_REMOVED = value;
 	}
 	DisplayObject.prototype.transformedByScript = function() {
-		return this.getBase().TRANSFORMED_BY_SCRIPT;
+		return this.TRANSFORMED_BY_SCRIPT;
 	}
 	DisplayObject.prototype.setTransformedByScript = function(value) {
-		this.getBase().TRANSFORMED_BY_SCRIPT = value;
+		this.TRANSFORMED_BY_SCRIPT = value;
 	}
 	DisplayObject.prototype.instantiatedByTimeline = function() {
-		return this.getBase().INSTANTIATED_BY_TIMELINE;
+		return this.INSTANTIATED_BY_TIMELINE;
 	}
 	DisplayObject.prototype.setInstantiatedByTimeline = function(value) {
-		this.getBase().INSTANTIATED_BY_TIMELINE = value;
+		this.INSTANTIATED_BY_TIMELINE = value;
 	}
 	DisplayObject.prototype.shouldSkipNextEnterFrame = function() {
-		return this.getBase().SKIP_NEXT_ENTER_FRAME;
+		return this.SKIP_NEXT_ENTER_FRAME;
 	}
 	DisplayObject.prototype.setSkipNextEnterFrame = function(b) {
-		this.getBase().SKIP_NEXT_ENTER_FRAME = b;
+		this.SKIP_NEXT_ENTER_FRAME = b;
 	}
 	DisplayObject.prototype.getId = function() {
 		return 0;
@@ -3738,9 +3401,33 @@ var PinkFie = (function() {
 	DisplayObject.prototype.render = function(context) {
 		renderBase.call(this, context);
 	}
+	DisplayObject.prototype.debugRenderBounds = function(matrix, colorTransform, tags) {
+		var rMatrix = utils.multiplicationMatrix(matrix, this.matrix());
+		var rColorTransform = utils.multiplicationColor(colorTransform, this.colorTransform());
+		var bounds = this.selfBounds();
+		var matrixBounds = utils.boundsMatrix(bounds, rMatrix);
+		tags.push([4, this.displayType, this._debug_colorDisplayType[0], this._debug_colorDisplayType[1], this._debug_colorDisplayType[2]]);
+		tags.push([3, [
+			+rColorTransform[0].toFixed(3),
+			+rColorTransform[1].toFixed(3),
+			+rColorTransform[2].toFixed(3),
+			+rColorTransform[3].toFixed(3),
+			+rColorTransform[4].toFixed(3),
+			+rColorTransform[5].toFixed(3),
+			+rColorTransform[6].toFixed(3),
+			+rColorTransform[7].toFixed(3)
+		]]);
+		var g1 = utils.generateMatrix([bounds.xMin, bounds.yMin], rMatrix);
+		var g2 = utils.generateMatrix([bounds.xMax, bounds.yMin], rMatrix);
+		var g3 = utils.generateMatrix([bounds.xMax, bounds.yMax], rMatrix);
+		var g4 = utils.generateMatrix([bounds.xMin, bounds.yMax], rMatrix);
+		tags.push([0, (g1[0] | 0), (g1[1] | 0), (g2[0] | 0), (g2[1] | 0), (g3[0] | 0), (g3[1] | 0), (g4[0] | 0), (g4[1] | 0)]);
+		tags.push([1, (matrixBounds.xMin | 0), (matrixBounds.yMin | 0), (matrixBounds.xMax | 0), (matrixBounds.yMax | 0)]);
+		tags.push([2, (matrixBounds.xMin | 0), (matrixBounds.yMin | 0)]);
+	}
 	DisplayObject.prototype.renderSelf = function() {}
-	DisplayObject.prototype.enterFrame = function() { }
-	DisplayObject.prototype.runFrameAvm1 = function() { }
+	DisplayObject.prototype.enterFrame = function() {}
+	DisplayObject.prototype.runFrameAvm1 = function() {}
 	DisplayObject.prototype.isInteractive = function() {
 		return false;
 	}
@@ -3759,33 +3446,50 @@ var PinkFie = (function() {
 	}
 	DisplayObject.prototype.setState = function() {
 	}
-	const InteractiveObjectBase = function() {
-		this.base = null;
-		this._mouseEnabled = true;
+	DisplayObject.prototype.applyDisplayObject = function(displayObject) {
+		displayObject.applyMatrix(this._matrix);
+		displayObject.applyColorTransform(this._colorTransform);
+		displayObject._blendMode = null;
+		displayObject._filters = [];
+
+		displayObject._parent = this._parent;
+		displayObject._placeFrame = this._placeFrame;
+		displayObject._depth = this._depth;
+		displayObject._name = this._name;
+		displayObject._clipDepth = this._clipDepth;
+		displayObject._nextAvm1Clip = this._nextAvm1Clip;
+		displayObject._soundTransform = new SoundTransform();
+		displayObject._masker = this._masker;
+		displayObject._maskee = this._maskee;
+		displayObject._opaqueBackground = [0,0,0,0];
+
+		/// flags
+		displayObject.AVM1_REMOVED = this.AVM1_REMOVED;
+		displayObject.VISIBLE = this.VISIBLE;
+		displayObject.SCALE_ROTATION_CACHED = this.SCALE_ROTATION_CACHED;
+		displayObject.TRANSFORMED_BY_SCRIPT = this.TRANSFORMED_BY_SCRIPT;
+		displayObject.PLACED_BY_SCRIPT = this.PLACED_BY_SCRIPT;
+		displayObject.INSTANTIATED_BY_TIMELINE = this.INSTANTIATED_BY_TIMELINE;
+		displayObject.IS_ROOT = this.IS_ROOT;
+		displayObject.LOCK_ROOT = this.LOCK_ROOT;
+		displayObject.CACHE_AS_BITMAP = this.CACHE_AS_BITMAP;
+		displayObject.HAS_SCROLL_RECT = this.HAS_SCROLL_RECT;
+		displayObject.HAS_EXPLICIT_NAME = this.HAS_EXPLICIT_NAME;
+		displayObject.SKIP_NEXT_ENTER_FRAME = this.SKIP_NEXT_ENTER_FRAME;
+		displayObject.CACHE_INVALIDATED = this.CACHE_INVALIDATED;
 	}
-	InteractiveObjectBase.prototype.clone = function() {
-		const clone = new InteractiveObjectBase();
-		clone.base = this.base.clone();
-		clone._mouseEnabled = true;
-		return clone;
-	}
-	
 	const InteractiveObject = function() {
-		DisplayObject.call(this);
+		InteractiveObject.parent.call(this);
+		this._mouseEnabled = true;
 		this.displayType = "InteractiveObject";
 	}
-	InteractiveObject.prototype = Object.create(DisplayObject.prototype);
-	InteractiveObject.prototype.constructor = InteractiveObject;
-	InteractiveObject.createInteractiveBase = function() {
-		let gs = new InteractiveObjectBase();
-		gs.base = DisplayObject.createBase();
-		return gs;
-	}
-	InteractiveObject.prototype.rawInteractive = function() {
-		return this.base;
-	}
+	inherits(InteractiveObject, DisplayObject);
 	InteractiveObject.prototype.isInteractive = function() {
 		return true;
+	}
+	InteractiveObject.prototype.applyDisplayObject = function(displayObject) {
+		InteractiveObject.parent.prototype.applyDisplayObject.call(this, displayObject);
+		displayObject._mouseEnabled = this._mouseEnabled;
 	}
 	const ChildContainer = function() {
 		this.renderList = [];
@@ -3867,11 +3571,10 @@ var PinkFie = (function() {
 		}
 	}
 	const DisplayObjectContainer = function() {
-		InteractiveObject.call(this);
+		DisplayObjectContainer.parent.call(this);
 		this.displayType = "Container";
 	}
-	DisplayObjectContainer.prototype = Object.create(InteractiveObject.prototype);
-	DisplayObjectContainer.prototype.constructor = DisplayObjectContainer;
+	inherits(DisplayObjectContainer, InteractiveObject);
 	DisplayObjectContainer.prototype.rawContainer = function() {}
 	DisplayObjectContainer.prototype.isContainer = function() {
 		return true;
@@ -3904,7 +3607,7 @@ var PinkFie = (function() {
 		for (let i = 0; i < children.length; i++) {
 			const child = children[i];
 			let matrix2 = child.matrix();
-			let b = boundsMatrix(child.selfBounds(), matrix2);
+			let b = utils.boundsMatrix(child.selfBounds(), matrix2);
 			xMin = Math.min(xMin, b.xMin);
 			xMax = Math.max(xMax, b.xMax);
 			yMin = Math.min(yMin, b.yMin);
@@ -3917,7 +3620,7 @@ var PinkFie = (function() {
 		this.renderChildren(context);
 	}
 	DisplayObjectContainer.prototype.renderChildren = function(context) {
-		let children = this.iterRenderList();
+		const children = this.iterRenderList();
 		let clipDepth = 0;
 		let clipDepthStack = [];
 		for (let i = 0; i < children.length; i++) {
@@ -3946,123 +3649,136 @@ var PinkFie = (function() {
 			context.commands.popMask();
 		}
 	}
-	const GraphicData = function() {
-		this.base = null;
-		this.staticData = null;
+	DisplayObjectContainer.prototype.debugRenderBounds = function(matrix, colorTransform, tags) {
+		var rMatrix = utils.multiplicationMatrix(matrix, this.matrix());
+		var rColorTransform = utils.multiplicationColor(colorTransform, this.colorTransform());
+		const children = this.iterRenderList();
+		for (let i = 0; i < children.length; i++) {
+			const child = children[i];
+			child.debugRenderBounds(rMatrix, rColorTransform, tags);
+		}
+		if (!this.isRoot()) {
+			var bounds = this.selfBounds();
+			var matrixBounds = utils.boundsMatrix(bounds, rMatrix);
+			tags.push([4, this.displayType, this._debug_colorDisplayType[0], this._debug_colorDisplayType[1], this._debug_colorDisplayType[2]]);
+			tags.push([3, [
+				+rColorTransform[0].toFixed(3),
+				+rColorTransform[1].toFixed(3),
+				+rColorTransform[2].toFixed(3),
+				+rColorTransform[3].toFixed(3),
+				+rColorTransform[4].toFixed(3),
+				+rColorTransform[5].toFixed(3),
+				+rColorTransform[6].toFixed(3),
+				+rColorTransform[7].toFixed(3)
+			]]);
+			tags.push([1, (matrixBounds.xMin | 0), (matrixBounds.yMin | 0), (matrixBounds.xMax | 0), (matrixBounds.yMax | 0)]);
+			tags.push([2, (matrixBounds.xMin | 0), (matrixBounds.yMin | 0) - 20]);
+		}
 	}
-	GraphicData.prototype.clone = function() {
-		const clone = new GraphicData();
-		clone.base = this.base.clone();
-		clone.staticData = this.staticData;
-		return clone;
+	DisplayObjectContainer.prototype.applyDisplayObject = function(displayObject) {
+		DisplayObjectContainer.parent.prototype.applyDisplayObject.call(this, displayObject);
 	}
 	const Graphic = function(data) {
-		DisplayObject.call(this);
-		this.data = data;
+		Graphic.parent.call(this);
+		this.staticData = null;
 		this.displayType = "Shape";
 		this._debug_colorDisplayType = [0, 0, 255, 1];
+		if (data) data.applyDisplayObject(this);
 	}
-	Graphic.prototype = Object.create(DisplayObject.prototype);
-	Graphic.prototype.constructor = Graphic;
+	inherits(Graphic, DisplayObject);
 	Graphic.fromSwfTag = function(context, swfShape, movie) {
-		let staticData = new GraphicStatic();
+		const data = new Graphic();
+		const staticData = new GraphicStatic();
 		staticData.id = swfShape.id;
 		staticData.movie = movie;
 		staticData.shape = swfShape;
 		staticData.bounds = swfShape.bounds;
-
-		let data = new GraphicData();
-		data.base = DisplayObject.createBase();
 		data.staticData = staticData;
-		return new Graphic(data);
+		return data;
 	}
-	Graphic.prototype.getBase = function() {
-		return this.data.base;
+	Graphic.prototype.applyDisplayObject = function(displayObject) {
+		Graphic.parent.prototype.applyDisplayObject.call(this, displayObject);
+		displayObject.staticData = this.staticData;
 	}
 	Graphic.prototype.getId = function() {
-		return this.data.staticData.id;
+		return this.staticData.id;
 	}
 	Graphic.prototype.replaceWith = function(context, id) {
 		let library = context.library.libraryForMovie(this.movie());
 		let new_graphic = library.characterById(id);
-		this.data.staticData = new_graphic.data.staticData;
+		this.staticData = new_graphic.staticData;
 	}
 	Graphic.prototype.renderSelf = function(context) {
-		let staticData = this.data.staticData;
-		if (!staticData.renderHandle) staticData.renderHandle = context.renderer.registerShape(shapeUtils.convert(staticData.shape.shapes, "shape"), context.library.libraryForMovie(this.movie()));
-		context.commands.renderShape(staticData.renderHandle, context.transformStack.getMatrix(), context.transformStack.getColorTransform());
+		let staticData = this.staticData;
+		let renderHandle = staticData.getRenderHandle(context, context.library);
+		context.commands.renderShape(renderHandle, context.transformStack.getMatrix(), context.transformStack.getColorTransform());
 	}
 	Graphic.prototype.selfBounds = function() {
-		return this.data.staticData.bounds;
+		return this.staticData.bounds;
 	}
 	Graphic.prototype.movie = function() {
-		return this.data.staticData.movie;
+		return this.staticData.movie;
 	}
 	Graphic.prototype.instantiate = function() {
-		return new Graphic(this.data.clone());
+		return new Graphic(this);
 	}
 	const GraphicStatic = function() {
 		this.id = 0;
 		this.movie = null;
+		this.shape = null;
 		this.renderHandle = null;
 		this.bounds = null;
 		this.movie = null;
 	}
-	const MorphShapeData = function() {
-		this.base = null;
-		this.ratio = 0;
-		this.staticData = null;
-	}
-	MorphShapeData.prototype.clone = function() {
-		const clone = new MorphShapeData();
-		clone.base = this.base.clone();
-		clone.ratio = this.ratio;
-		clone.staticData = this.staticData;
-		return clone;
+	GraphicStatic.prototype.getRenderHandle = function(context, library) {
+		if (!this.renderHandle) this.renderHandle = context.renderer.registerShape(shapeUtils.convert(this.shape, "shape"), library.libraryForMovie(this.movie));
+		return this.renderHandle;
 	}
 	const MorphShape = function(data) {
-		DisplayObject.call(this);
-		this.data = data;
+		MorphShape.parent.call(this);
+		this._ratio = 0;
+		this.staticData = null;
 		this.displayType = "MorphShape";
 		this._debug_colorDisplayType = [0, 255, 255, 1];
+		if (data) data.applyDisplayObject(this);
 	}
-	MorphShape.prototype = Object.create(DisplayObject.prototype);
-	MorphShape.prototype.constructor = MorphShape;
+	inherits(MorphShape, DisplayObject);
 	MorphShape.fromSwfTag = function(tag, movie) {
-		let staticData = MorphShapeStatic.fromSwfTag(tag, movie);
-		let m = new MorphShapeData();
-		m.base = DisplayObject.createBase();
-		m.staticData = staticData;
-		return new MorphShape(m);
+		const morph_shape = new MorphShape();
+		const staticData = MorphShapeStatic.fromSwfTag(tag, movie);
+		morph_shape.staticData = staticData;
+		return morph_shape;
 	}
-	MorphShape.prototype.getBase = function() {
-		return this.data.base;
+	MorphShape.prototype.applyDisplayObject = function(displayObject) {
+		MorphShape.parent.prototype.applyDisplayObject.call(this, displayObject);
+		displayObject._ratio = this._ratio;
+		displayObject.staticData = this.staticData;
 	}
 	MorphShape.prototype.setRatio = function(ratio) {
-		this.data.ratio = ratio;
+		this._ratio = ratio;
 	}
 	MorphShape.prototype.getId = function() {
-		return this.data.staticData.id;
+		return this.staticData.id;
 	}
 	MorphShape.prototype.movie = function() {
-		return this.data.staticData.movie;
+		return this.staticData.movie;
 	}
 	MorphShape.prototype.selfBounds = function() {
-		return this.data.staticData.getFrame(this.data.ratio).bounds;
+		return this.staticData.getFrame(this._ratio).bounds;
 	}
 	MorphShape.prototype.renderSelf = function(context) {
-		let ratio = this.data.ratio;
-		let static_data = this.data.staticData;
-		let shape_handle = static_data.getShape(context, context.library, ratio);
+		const ratio = this._ratio;
+		const static_data = this.staticData;
+		const shape_handle = static_data.getShape(context, context.library, ratio);
 		context.commands.renderShape(shape_handle, context.transformStack.getMatrix(), context.transformStack.getColorTransform());
 	}
 	MorphShape.prototype.replaceWith = function(context, id) {
 		var library = context.library.libraryForMovie(this.movie());
 		var new_graphic = library.characterById(id);
-		this.data.staticData = new_graphic.data.staticData;
+		this.staticData = new_graphic.staticData;
 	}
 	MorphShape.prototype.instantiate = function() {
-		return new MorphShape(this.data.clone());
+		return new MorphShape(this);
 	}
 	const MorphShapeStatic = function() {
 		this.data = null;
@@ -4123,16 +3839,10 @@ var PinkFie = (function() {
 				};
 			} else {
 				var gradient = fillStyle.gradient;
-				if (!gradient) {
-					gradient = fillStyle.linearGradient;
-				}
-				if (!gradient) {
-					gradient = fillStyle.radialGradient;
-				}
+				if (!gradient) gradient = fillStyle.linearGradient;
+				if (!gradient) gradient = fillStyle.radialGradient;
 				var focalPoint = 0;
-				if (fillStyleType == 19) {
-					focalPoint = this.lerpTwips(fillStyle.startFocalPoint, fillStyle.endFocalPoint, per);
-				}
+				if (fillStyleType == 19) focalPoint = this.lerpTwips(fillStyle.startFocalPoint, fillStyle.endFocalPoint, per);
 				var gRecords = [];
 				var GradientRecords = gradient.gradientRecords;
 				for (var gIdx = 0; gIdx < GradientRecords.length; gIdx++) {
@@ -4173,8 +3883,8 @@ var PinkFie = (function() {
 		var startPer = 1 - per;
 		var startPosition = { x: 0, y: 0 };
 		var endPosition = { x: 0, y: 0 };
-		var StartRecords = cloneObject(this.data.startEdges);
-		var EndRecords = cloneObject(this.data.endEdges);
+		var StartRecords = utils.cloneObject(this.data.startEdges);
+		var EndRecords = utils.cloneObject(this.data.endEdges);
 		var StartRecordLength = StartRecords.length;
 		var EndRecordLength = EndRecords.length;
 		var length = Math.max(StartRecordLength, EndRecordLength);
@@ -4182,9 +3892,7 @@ var PinkFie = (function() {
 			var addRecode = {};
 			var StartRecord = StartRecords[i];
 			var EndRecord = EndRecords[i];
-			if (!StartRecord || !EndRecord) {
-				continue;
-			}
+			if (!StartRecord || !EndRecord) continue;
 			if (!StartRecord.isChange && !EndRecord.isChange) {
 				if (StartRecord.isCurved) {
 					startPosition.x += StartRecord.controlDeltaX + StartRecord.anchorDeltaX;
@@ -4256,12 +3964,8 @@ var PinkFie = (function() {
 		length = StartRecords.length;
 		for (var i = 0; i < length; i++) {
 			var record = StartRecords[i];
-			if (!record.isChange) {
-				continue;
-			}
-			if (record.stateFillStyle0) {
-				FillStyle = record.fillStyle0;
-			}
+			if (!record.isChange) continue;
+			if (record.stateFillStyle0) FillStyle = record.fillStyle0;
 			if (FillStyle) {
 				record.stateFillStyle0 = 1;
 				record.stateFillStyle1 = 1;
@@ -4282,13 +3986,9 @@ var PinkFie = (function() {
 		var len = StartRecords.length;
 		for (var i = 0; i < len; i++) {
 			var StartRecord = StartRecords[i];
-			if (!StartRecord) {
-				continue;
-			}
+			if (!StartRecord) continue;
 			var EndRecord = EndRecords[i];
-			if (!EndRecord) {
-				continue;
-			}
+			if (!EndRecord) continue;
 			var newRecord = {};
 			if (StartRecord.isChange) {
 				var MoveX = 0;
@@ -4337,28 +4037,24 @@ var PinkFie = (function() {
 				isChange: false
 			};
 		} else if (!startIsCurved && endIsCurved) {
-			var startControlX = start.deltaX / 2;
-			var startControlY = start.deltaY / 2;
-			var startAnchorX = startControlX;
-			var startAnchorY = startControlY;
+			var deltaX = start.deltaX / 2;
+			var deltaY = start.deltaY / 2;
 			return {
-				controlDeltaX: this.lerpTwips(startControlX, end.controlDeltaX, per),
-				controlDeltaY: this.lerpTwips(startControlY, end.controlDeltaY, per),
-				anchorDeltaX: this.lerpTwips(startAnchorX, end.anchorDeltaX, per),
-				anchorDeltaY: this.lerpTwips(startAnchorY, end.anchorDeltaY, per),
+				controlDeltaX: this.lerpTwips(deltaX, end.controlDeltaX, per),
+				controlDeltaY: this.lerpTwips(deltaY, end.controlDeltaY, per),
+				anchorDeltaX: this.lerpTwips(deltaX, end.anchorDeltaX, per),
+				anchorDeltaY: this.lerpTwips(deltaY, end.anchorDeltaY, per),
 				isCurved: true,
 				isChange: false
 			};
 		} else if (startIsCurved && !endIsCurved) {
-			var endControlX = end.deltaX / 2;
-			var endControlY = end.deltaY / 2;
-			var endAnchorX = endControlX;
-			var endAnchorY = endControlY;
+			var deltaX = end.deltaX / 2;
+			var deltaY = end.deltaY / 2;
 			return {
-				controlDeltaX: this.lerpTwips(start.controlDeltaX, endControlX, per),
-				controlDeltaY: this.lerpTwips(start.controlDeltaY, endControlY, per),
-				anchorDeltaX: this.lerpTwips(start.anchorDeltaX, endAnchorX, per),
-				anchorDeltaY: this.lerpTwips(start.anchorDeltaY, endAnchorY, per),
+				controlDeltaX: this.lerpTwips(start.controlDeltaX, deltaX, per),
+				controlDeltaY: this.lerpTwips(start.controlDeltaY, deltaY, per),
+				anchorDeltaX: this.lerpTwips(start.anchorDeltaX, deltaX, per),
+				anchorDeltaY: this.lerpTwips(start.anchorDeltaY, deltaY, per),
 				isCurved: true,
 				isChange: false
 			};
@@ -4370,8 +4066,8 @@ var PinkFie = (function() {
 			fillStyles: [],
 			shapeRecords: []
 		};
-		var lineStyles = cloneObject(this.data.morphLineStyles);
-		var fillStyles = cloneObject(this.data.morphFillStyles);
+		var lineStyles = utils.cloneObject(this.data.morphLineStyles);
+		var fillStyles = utils.cloneObject(this.data.morphFillStyles);
 		for (var i = 0; i < lineStyles.length; i++) {
 			shapes.lineStyles[i] = this.lerpLine(lineStyles[i], per);
 		}
@@ -4386,43 +4082,32 @@ var PinkFie = (function() {
 			shapes
 		};
 	}
-	const StaticTextData = function() {
-		this.base = null;
-		this.staticData = null;
-	}
-	StaticTextData.prototype.clone = function() {
-		const clone = new StaticTextData();
-		clone.base = this.base.clone();
-		clone.staticData = this.staticData;
-		return clone;
-	}
 	const StaticText = function(data) {
-		DisplayObject.call(this);
-		this.data = data;
+		StaticText.parent.call(this);
 		this.displayType = "StaticText";
 		this._debug_colorDisplayType = [255, 0, 255, 1];
+		if (data) data.applyDisplayObject(this);
 	}
-	StaticText.prototype = Object.create(DisplayObject.prototype);
-	StaticText.prototype.constructor = StaticText;
+	inherits(StaticText, DisplayObject);
 	StaticText.fromSwfTag = function(context, movie, tag) {
-		let text = new StaticTextData();
-		let staticData = new TextStatic();
+		const text = new StaticText();
+		const staticData = new TextStatic();
 		staticData.id = tag.id;
 		staticData.bounds = tag.bounds;
 		staticData.matrix = tag.matrix;
 		staticData.textBlocks = tag.records;
 		staticData.movie = movie;
 		text.staticData = staticData;
-		text.base = DisplayObject.createBase();
-		return new StaticText(text);
+		return text;
 	}
-	StaticText.prototype.getBase = function() {
-		return this.data.base;
+	StaticText.prototype.applyDisplayObject = function(displayObject) {
+		StaticText.parent.prototype.applyDisplayObject.call(this, displayObject);
+		displayObject.staticData = this.staticData;
 	}
 	StaticText.prototype.runFrameAvm1 = function() {
 	}
 	StaticText.prototype.selfBounds = function() {
-		return this.data.staticData.bounds;
+		return this.staticData.bounds;
 	}
 	StaticText.prototype.renderSelf = function(context) {
 		var library = context.library.libraryForMovie(this.movie());
@@ -4430,25 +4115,15 @@ var PinkFie = (function() {
 		var offsetY = 0;
 		var color = [0, 0, 0, 0];
 		var textHeight = 0;
-		context.transformStack.stackPush(this.data.staticData.matrix, [1, 1, 1, 1, 0, 0, 0, 0]);
-		for (var i = 0; i < this.data.staticData.textBlocks.length; i++) {
-			var record = this.data.staticData.textBlocks[i];
-			if ("fontId" in record) {
-				var fontId = record.fontId;
-				var fontData = library.characterById(fontId);
-			}
-			if ("XOffset" in record) {
-				offsetX = record.XOffset;
-			}
-			if ("YOffset" in record) {
-				offsetY = record.YOffset;
-			}
-			if ("textColor" in record) {
-				color = record.textColor;
-			}
-			if ("textHeight" in record) {
-				textHeight = record.textHeight;
-			}
+		var fontData;
+		context.transformStack.stackPush(this.staticData.matrix, [1, 1, 1, 1, 0, 0, 0, 0]);
+		for (var i = 0; i < this.staticData.textBlocks.length; i++) {
+			var record = this.staticData.textBlocks[i];
+			if ("fontId" in record) fontData = library.characterById(record.fontId);
+			if ("XOffset" in record) offsetX = record.XOffset;
+			if ("YOffset" in record) offsetY = record.YOffset;
+			if ("textColor" in record) color = record.textColor;
+			if ("textHeight" in record) textHeight = record.textHeight;
 			var entries = record.glyphEntries;
 			var _scale = textHeight / fontData.scale;
 			for (var idx = 0; idx < entries.length; idx++) {
@@ -4473,16 +4148,16 @@ var PinkFie = (function() {
 	StaticText.prototype.replaceWith = function(context, id) {
 		var library = context.library.libraryForMovie(this.movie());
 		var new_graphic = library.characterById(id);
-		this.data.staticData = new_graphic.data.staticData;
+		this.staticData = new_graphic.staticData;
 	}
 	StaticText.prototype.getId = function() {
-		return this.data.staticData.id;
+		return this.staticData.id;
 	}
 	StaticText.prototype.instantiate = function() {
-		return new StaticText(this.data.clone());
+		return new StaticText(this);
 	}
 	StaticText.prototype.movie = function() {
-		return this.data.staticData.movie;
+		return this.staticData.movie;
 	}
 	const TextStatic = function() {
 		this.id = 0;
@@ -4494,48 +4169,38 @@ var PinkFie = (function() {
 	}
 	TextStatic.prototype.setRenderSettings = function(settings) {
 	}
-	const TextFieldData = function() {
-		this.base = null;
-		this.staticData = null;
-	}
-	TextFieldData.prototype.clone = function() {
-		const clone = new TextFieldData();
-		clone.base = this.base.clone();
-		clone.staticData = this.staticData;
-		return clone;
-	}
 	const TextField = function(data) {
-		InteractiveObject.call(this);
-		this.data = data;
+		TextField.parent.call(this);
+		this.staticData = null;
 		this.displayType = "TextField";
 		this._debug_colorDisplayType = [255, 255, 0, 1];
+		if (data) data.applyDisplayObject(this);
 	}
-	TextField.prototype = Object.create(InteractiveObject.prototype);
-	TextField.prototype.constructor = TextField;
+	inherits(TextField, InteractiveObject);
 	TextField.fromSwfTag = function(context, movie, edit_text) {
-		let data = new TextFieldData();
-		let staticData = new EditTextStatic();
+		const data = new TextField();
+		const staticData = new EditTextStatic();
 		staticData.id = edit_text.id;
 		staticData.swf = movie;
 		staticData.bounds = edit_text.bounds;
 		data.staticData = staticData;
-		data.base = InteractiveObject.createInteractiveBase();
-		return new TextField(data);
+		return data;
 	}
-	TextField.prototype.getBase = function() {
-		return this.data.base.base;
+	TextField.prototype.applyDisplayObject = function(displayObject) {
+		TextField.parent.prototype.applyDisplayObject.call(this, displayObject);
+		displayObject.staticData = this.staticData;
 	}
 	TextField.prototype.selfBounds = function() {
-		return this.data.staticData.bounds;
+		return this.staticData.bounds;
 	}
 	TextField.prototype.getId = function() {
-		return this.data.staticData.id;
+		return this.staticData.id;
 	}
 	TextField.prototype.instantiate = function() {
-		return new TextField(this.data.clone());
+		return new TextField(this);
 	}
 	TextField.prototype.movie = function() {
-		return this.data.staticData.swf;
+		return this.staticData.swf;
 	}
 	const EditTextStatic = function() {
 		this.swf = null;
@@ -4544,47 +4209,45 @@ var PinkFie = (function() {
 	}
 	const BitmapGraphicData = function() {
 		this.base = null;
-		this.bitmapH = null;
-		this._id = 0;
-		this._size = [0, 0];
 	}
 	BitmapGraphicData.prototype.clone = function() {
 		const clone = new BitmapGraphicData();
 		clone.base = this.base.clone();
-		clone.bitmapH = this.bitmapH;
-		clone._id = this._id;
-		clone._size = this._size.slice(0);
 		return clone;
 	}
 	const BitmapGraphic = function(data) {
-		DisplayObject.call(this);
-		this.data = data;
+		BitmapGraphic.parent.call(this);
+		this._bitmapH = null;
+		this._id = 0;
+		this._size = [0, 0];
 		this._debug_colorDisplayType = [255, 155, 0, 1];
 		this.displayType = "Bitmap";
+		if (data) data.applyDisplayObject(this);
 	}
-	BitmapGraphic.prototype = Object.create(DisplayObject.prototype);
-	BitmapGraphic.prototype.constructor = BitmapGraphic;
+	inherits(BitmapGraphic, DisplayObject);
 	BitmapGraphic.createNew = function(context, id, bitmap) {
-		let h = new BitmapGraphicData();
-		h.base = DisplayObject.createBase();
-		h.bitmapH = bitmap;
+		let h = new BitmapGraphic();
+		h._bitmapH = bitmap;
 		h._id = id;
 		h._size = [bitmap.width, bitmap.height];
-		return new BitmapGraphic(h);
+		return h;
 	}
-	BitmapGraphic.prototype.getBase = function() {
-		return this.data.base;
+	BitmapGraphic.prototype.applyDisplayObject = function(displayObject) {
+		BitmapGraphic.parent.prototype.applyDisplayObject.call(this, displayObject);
+		displayObject._bitmapH = this._bitmapH;
+		displayObject._id = this._id;
+		displayObject._size = this._size.slice(0);
 	}
 	BitmapGraphic.prototype.selfBounds = function() {
 		return {
 			xMin: 0,
 			yMin: 0,
-			xMax: this.data._size[0] * twips,
-			yMax: this.data._size[1] * twips,
+			xMax: this._size[0] * twips,
+			yMax: this._size[1] * twips,
 		}
 	}
 	BitmapGraphic.prototype.bitmapH = function() {
-		return this.data.bitmapH;
+		return this._bitmapH;
 	}
 	BitmapGraphic.prototype.renderSelf = function(context) {
 		context.transformStack.stackPush([twips, 0, 0, twips, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
@@ -4592,43 +4255,32 @@ var PinkFie = (function() {
 		context.transformStack.stackPop();
 	}
 	BitmapGraphic.prototype.getId = function() {
-		return this.data._id;
+		return this._id;
 	}
 	BitmapGraphic.prototype.instantiate = function() {
-		return new BitmapGraphic(this.data.clone());
-	}
-	const DisplayVideoStreamData = function() {
-		this.base = null;
-		this.__size = [0, 0];
-		this.__movie = null;
-		this.ratio = 0;
-		this.decoder = null;
-	}
-	DisplayVideoStreamData.prototype.clone = function() {
-		const clone = new DisplayVideoStreamData();
-		clone.base = this.base.clone();
-		clone.__size = this.__size.slice(0);
-		clone.__movie = this.__movie;
-		clone.ratio = this.ratio;
-		clone.decoder = this.decoder;
-		return clone;
+		return new BitmapGraphic(this);
 	}
 	const DisplayVideoStream = function(data) {
-		DisplayObject.call(this);
-		this.data = data;
+		DisplayVideoStream.parent.call(this);
+		this.__size = [0, 0];
+		this.__movie = null;
+		this._ratio = 0;
+		this.decoder = null;
+		this.frames = null;
 		this._debug_colorDisplayType = [255, 100, 100, 1];
 		this.displayType = "Video";
+		if (data) data.applyDisplayObject(this);
 	}
-	DisplayVideoStream.prototype = Object.create(DisplayObject.prototype);
-	DisplayVideoStream.prototype.constructor = DisplayVideoStream;
+	inherits(DisplayVideoStream, DisplayObject);
 	DisplayVideoStream.fromSwfTag = function(movie, streamdef) {
-		let h = new DisplayVideoStreamData();
-		h.base = DisplayObject.createBase();
+		const h = new DisplayVideoStream();
+		h.frames = new Map();
+		console.log(streamdef);
 		h.__size = [streamdef.width, streamdef.height];
 		var decoder;
 		switch(streamdef.codec) {
 			case "H263":
-				console.log("TODO: H263");
+				console.log("TODO H263 VIDEO PACKET");
 				decoder = new H263Decoder();
 				break;
 			case "ScreenVideo":
@@ -4638,10 +4290,10 @@ var PinkFie = (function() {
 				decoder = new ScreenVideoDecoder(2);
 				break;
 			case "Vp6":
-				decoder = new VP6Decoder(false);
+				decoder = new VP6Decoder(streamdef.width, streamdef.height, false);
 				break;
 			case "Vp6WithAlpha":
-				decoder = new VP6Decoder(true);
+				decoder = new VP6Decoder(streamdef.width, streamdef.height, true);
 				break;
 			case "none":
 				decoder = null;
@@ -4651,89 +4303,82 @@ var PinkFie = (function() {
 		h.__movie = movie;
 		return new DisplayVideoStream(h);
 	}
+	DisplayVideoStream.prototype.applyDisplayObject = function(displayObject) {
+		DisplayVideoStream.parent.prototype.applyDisplayObject.call(this, displayObject);
+		displayObject.__size = this.__size.slice(0);
+		displayObject.__movie = this.__movie;
+		displayObject.frames = this.frames;
+		displayObject._ratio = this._ratio;
+		displayObject.decoder = this.decoder;
+	}
 	DisplayVideoStream.prototype.selfBounds = function() {
 		return {
 			xMin: 0,
 			yMin: 0,
-			xMax: this.data.__size[0] * twips,
-			yMax: this.data.__size[1] * twips,
+			xMax: this.__size[0] * twips,
+			yMax: this.__size[1] * twips,
 		}
-	}
-	DisplayVideoStream.prototype.getBase = function() {
-		return this.data.base;
 	}
 	DisplayVideoStream.prototype.movie = function() {
-		return this.data.__movie;
+		return this.__movie;
 	}
 	DisplayVideoStream.prototype.setRatio = function(ratio) {
-		this.data.ratio = ratio;
+		this._ratio = ratio;
 	}
 	DisplayVideoStream.prototype.preloadSwfFrame = function(videoframe) {
-		if (this.data.decoder) {
-			this.data.decoder.decodeFrame({
-				data: videoframe.data
-			});
-		}
+		this.frames.set(videoframe.frameNum, {
+			data: videoframe.data,
+			texture: null
+		});
 	}
-	DisplayVideoStream.prototype.renderSelf = function() {}
+	DisplayVideoStream.prototype.renderSelf = function(context) {
+	}
 	DisplayVideoStream.prototype.instantiate = function() {
-		return new DisplayVideoStream(this.data.clone());
+		return new DisplayVideoStream(this);
 	}
 	const typeButton = {
 		"up": "buttonStateUp",
 		"over": "buttonStateOver",
 		"down": "buttonStateDown",
 	}
-	const Avm1ButtonData = function() {
-		this.base = null;
+	const Avm1Buttom = function(data) {
+		Avm1Buttom.parent.call(this);
 		this.container = null;
 		this.staticData = null;
 		this._state = "up";
 		this.initialized = false;
-	}
-	Avm1ButtonData.prototype.clone = function() {
-		const clone = new Avm1ButtonData();
-		clone.staticData = this.staticData;
-		clone.base = this.base.clone();
-		clone.container = new ChildContainer();
-		return clone;
-	}
-	const Avm1Buttom = function(data) {
-		DisplayObjectContainer.call(this);
-		this.data = data;
 		this.displayType = "Buttom";
 		this._debug_colorDisplayType = [0, 255, 0, 1];
+		if (data) data.applyDisplayObject(this);
 	}
-	Avm1Buttom.prototype = Object.create(DisplayObjectContainer.prototype);
-	Avm1Buttom.prototype.constructor = Avm1Buttom;
+	inherits(Avm1Buttom, DisplayObjectContainer);
 	Avm1Buttom.fromSwfTag = function(button, sourceMovie) {
-		let b = new Avm1ButtonData();
-		let staticData = new ButtonStatic();
+		const b = new Avm1Buttom();
+		const staticData = new ButtonStatic();
 		staticData.id = button.id;
 		staticData.movie = sourceMovie.movie;
 		staticData.records = button.records;
 		b.staticData = staticData;
-		b.base = InteractiveObject.createInteractiveBase();
-		b.container = new ChildContainer();
-		return new Avm1Buttom(b);
+		return b;
+	}
+	Avm1Buttom.prototype.applyDisplayObject = function(displayObject) {
+		Avm1Buttom.parent.prototype.applyDisplayObject.call(this, displayObject);
+		displayObject.staticData = this.staticData;
+		displayObject.container = new ChildContainer();
 	}
 	Avm1Buttom.prototype.rawContainer = function() {
-		return this.data.container;
-	}
-	Avm1Buttom.prototype.getBase = function() {
-		return this.data.base.base;
+		return this.container;
 	}
 	Avm1Buttom.prototype.getId = function() {
-		return this.data.staticData.id;
+		return this.staticData.id;
 	}
 	Avm1Buttom.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {
 		this.setDefaultInstanceName(context);
 		context.avm1.addExecuteList(this);
 	}
 	Avm1Buttom.prototype.setState = function(context, state) {
-		let button = this.data;
 		let library = context.library.libraryForMovie(this.movie());
-		button._state = state;
+		this._state = state;
 		let removedDepths = [];
 		let cs = this.iterRenderList();
 		for (let f = 0; f < cs.length; f++) {
@@ -4742,8 +4387,8 @@ var PinkFie = (function() {
 			removedDepths[de] = jdf;
 		}
 		let children = [];
-		for (let i = 0; i < this.data.staticData.records.length; i++) {
-			let record = this.data.staticData.records[i];
+		for (let i = 0; i < this.staticData.records.length; i++) {
+			let record = this.staticData.records[i];
 			if (record[typeButton[state]]) {
 				removedDepths[record.depth] = null;
 				let child = null;
@@ -4783,8 +4428,8 @@ var PinkFie = (function() {
 		this.setAvm1Removed(true);
 	}
 	Avm1Buttom.prototype.runFrameAvm1 = function(context) {
-		if (!this.data.initialized) {
-			this.data.initialized = true;
+		if (!this.initialized) {
+			this.initialized = true;
 			this.setState(context, "up");
 		}
 	}
@@ -4792,10 +4437,10 @@ var PinkFie = (function() {
 		this.renderChildren(c);
 	}
 	Avm1Buttom.prototype.instantiate = function() {
-		return new Avm1Buttom(this.data.clone());
+		return new Avm1Buttom(this);
 	}
 	Avm1Buttom.prototype.movie = function() {
-		return this.data.staticData.movie;
+		return this.staticData.movie;
 	}
 	const ButtonStatic = function() {
 		this.id = 0;
@@ -4806,12 +4451,21 @@ var PinkFie = (function() {
 		this.downToOverSound = null;
 		this.overToUpSound = null;
 	}
+	function removeIdArray(array, i) {
+		if (array.length) {
+			if (i >= array.length) {
+				array.pop();
+			} else {
+				array.splice(i, 1);
+			}
+		}
+	}
 	const GotoPlaceObject = function(frame, place, isRewind, index) {
 		this.frame = frame;
 		this.place = place;
 		this.isRewind = isRewind;
 		this.index = index;
-		this.placeData = objectCopy(place);
+		this.placeData = utils.objectCopy(place);
 		if (isRewind) {
 			if (("characterId" in place) && !place.isMove) {
 				if (!("matrix" in place)) this.placeData.matrix = [1, 0, 0, 1, 0, 0];
@@ -4839,277 +4493,110 @@ var PinkFie = (function() {
 		if ("ratio" in next_place) cur_place.ratio = next_place.ratio;
 		if ("backgroundColor" in next_place) cur_place.backgroundColor = next_place.backgroundColor;
 	}
-	const MovieClipData = function() {
-		this.base = null;
+	const MovieClip = function(data) { 
+		MovieClip.parent.call(this);
+
 		this.staticData = null;
 		this.container = null;
-		this.currentFrame = 0;
+		this._currentFrame = 0;
 		this.audioStream = null;
 		this.tagStreamPos = 0;
 
-		this.isPlaying = false;
-		this.isLoop = false;
+		this.playFlag = false;
+		this.loopFlag = false;
 		this.INITIALIZED = false;
 		this.PROGRAMMATICALLY_PLAYED = false;
 		this.EXECUTING_AVM2_FRAME_SCRIPT = false;
 		this.LOOP_QUEUED = false;
-	}
-	MovieClipData.prototype.totalframes = function() {
-		return this.staticData.totalframes;
-	}
-	MovieClipData.prototype.framesloaded = function() {
-		return this.staticData.preloadProgress.curPreloadFrame - 1;
-	}
-	MovieClipData.prototype.movie = function() {
-		return this.staticData.swf.movie;
-	}
-	MovieClipData.prototype.play = function() {
-		if (this.totalframes() > 1) {
-			this.isPlaying = true;
-		}
-	}
-	MovieClipData.prototype.stop = function(context) {
-		this.isPlaying = false;
-		this.stopAudioStream(context);
-	}
-	MovieClipData.prototype.setLoopQueued = function() {
-		this.LOOP_QUEUED = true;
-	}
-	MovieClipData.prototype.unsetLoopQueued = function() {
-		this.LOOP_QUEUED = false;
-	}
-	MovieClipData.prototype.stopAudioStream = function(context) {
-		if (this.audioStream) {
-			context.audio.stopStreamSound(this.audioStream);
-		}
-	}
-	MovieClipData.prototype.clone = function() {
-		const clone = new MovieClipData();
-		clone.base = this.base.clone();
-		clone.staticData = this.staticData;
-		clone.container = new ChildContainer(); // TODO
-		clone.currentFrame = this.currentFrame;
-		clone.isPlaying = this.isPlaying;
-		clone.isLoop = this.isLoop;
-		clone.INITIALIZED = this.INITIALIZED;
-		clone.PROGRAMMATICALLY_PLAYED = this.PROGRAMMATICALLY_PLAYED;
-		clone.EXECUTING_AVM2_FRAME_SCRIPT = this.EXECUTING_AVM2_FRAME_SCRIPT;
-		clone.LOOP_QUEUED = this.LOOP_QUEUED;
-		return clone;
-	}
-	MovieClipData.prototype.gotoPlaceObject = function(context, place, gotoCommands, isRewind, index) {
-		let depth = place.depth;
-		let gotoPlace = new GotoPlaceObject(this.currentFrame, place, isRewind, index);
-		for (let i = 0; i < gotoCommands.length; i++) {
-			const gc = gotoCommands[i];
-			if (gc.getDepth() == depth) {
-				gc.merge(gotoPlace);
-				return;
-			}
-		}
-		gotoCommands.push(gotoPlace);
-	}
 
-	// Preloading of definition tags
-	MovieClipData.prototype.defineSprite = function(context, reader, tagLength) {
-		let movie = this.movie();
-		let id = reader.byteStream.readUint16();
-		let numFrames = reader.byteStream.readUint16();
-		let movieClip = MovieClip.createNewWithData(id, this.staticData.swf.resizeToReader(reader, tagLength - 4), numFrames);
-		context.library.libraryForMovieMut(movie).registerCharacter(id, movieClip);
-		return function(callback) {
-			movieClip.preload(context, callback);
-		}
-	}
-	MovieClipData.prototype.defineShape = function(context, reader, version) {
-		let movie = this.movie();
-		let swfShape = reader.parseDefineShape(version);
-		let id = swfShape.id;
-		let graphic = Graphic.fromSwfTag(context, swfShape, movie);
-		context.library.libraryForMovieMut(movie).registerCharacter(id, graphic);
-	}
-	MovieClipData.prototype.defineMorphShape = function(context, reader, version) {
-		let movie = this.movie();
-		let tag = reader.parseDefineMorphShape(version);
-		let id = tag.id;
-		let morph_shape = MorphShape.fromSwfTag(tag, movie);
-		context.library.libraryForMovieMut(movie).registerCharacter(id, morph_shape);
-	}
-	MovieClipData.prototype.defineText = function(context, reader, version) {
-		let movie = this.movie();
-		let text = reader.parseDefineText(version);
-		let textObject = StaticText.fromSwfTag(context, movie, text);
-		context.library.libraryForMovieMut(movie).registerCharacter(text.id, textObject);
-	}
-	MovieClipData.prototype.defineFont = function(context, reader, version, tagLength) {
-		let movie = this.movie();
-		let font;
-		if (version == 1) {
-			font = reader.parseDefineFont1(tagLength);
-		} else if (version == 2) {
-			font = reader.parseDefineFont2(2, tagLength);
-		} else if (version == 3) {
-			font = reader.parseDefineFont2(3, tagLength);
-		} else if (version == 4) {
-			console.log("DefineFont4 tag (TLF text) is not implemented");
-			font = reader.parseDefineFont4(tagLength);
-			console.log(font);
-		}
-		let fontId = font.id;
-		let fontObject = FlashFont.fromSwfTag(context.renderer, font);
-		context.library.libraryForMovieMut(movie).registerCharacter(fontId, fontObject);
-	}
-	MovieClipData.prototype.defineButton1 = function(context, reader, tagLength) {
-		let swfButton = reader.parseDefineButton(1, tagLength);
-		this.defineButtonAny(context, swfButton);
-	}
-	MovieClipData.prototype.defineButton2 = function(context, reader, tagLength) {
-		let swfButton = reader.parseDefineButton(2, tagLength);
-		this.defineButtonAny(context, swfButton);
-	}
-	MovieClipData.prototype.defineButtonAny = function(context, swfButton) {
-		let movie = this.movie();
-		let button = Avm1Buttom.fromSwfTag(swfButton, this.staticData.swf);
-		let library = context.library.libraryForMovieMut(movie);
-		library.registerCharacter(swfButton.id, button);
-	}
-	MovieClipData.prototype.defineEditText = function(context, reader) {
-		let movie = this.movie();
-		let swf_edit_text = reader.parseDefineEditText();
-		let edit_text = TextField.fromSwfTag(context, movie, swf_edit_text);
-		let library = context.library.libraryForMovieMut(movie);
-		library.registerCharacter(swf_edit_text.id, edit_text);
-	}
-	MovieClipData.prototype.defineBitsLossless = function(context, reader, version, tagLength) {
-		let movie = this.movie();
-		let define_bits_lossless = reader.parseDefineBitsLossLess(version, tagLength);
-		let bitmap = decodeDefineBitsLossless(define_bits_lossless);
-		let _bitmap = BitmapGraphic.createNew(context, define_bits_lossless.id, context.renderer.imageToInterval(bitmap));
-		let library = context.library.libraryForMovieMut(movie);
-		library.registerCharacter(define_bits_lossless.id, _bitmap);
-	}
-	MovieClipData.prototype.jpegTables = function(context, reader, length) {
-		let movie = this.movie();
-		let jpeg_data = reader.byteStream.readBytes(length);
-		let library = context.library.libraryForMovieMut(movie);
-		library.setJpegTables(jpeg_data);
-	}
-	MovieClipData.prototype.defineBits = function(context, reader, version, length) {
-		let movie = this.movie();
-		let library = context.library.libraryForMovieMut(movie);
-		let swfBits = reader.parseDefineBits(version, length);
-		let jpeg_tables = (version == 1) ? library.jpegTables : null;
-		let jpeg_data = glueTablesToJpeg(new Uint8Array(swfBits.data), jpeg_tables);
-		return function(callback) {
-			decodeDefineBitsJpeg(jpeg_data, swfBits.alphaData, function(bitmap) {
-				let _bitmap = BitmapGraphic.createNew(context, swfBits.id, context.renderer.imageToInterval(bitmap));
-				library.registerCharacter(swfBits.id, _bitmap);
-				callback();
-			});
-		}
-	}
-	MovieClipData.prototype.defineVideoStream = function(context, reader) {
-		let movie = this.movie();
-		let streamdef = reader.parseDefineVideoStream();
-		let id = streamdef.id;
-		let video = DisplayVideoStream.fromSwfTag(movie, streamdef);
-		let library = context.library.libraryForMovieMut(movie);
-		library.registerCharacter(id, video);
-	}
-	MovieClipData.prototype.preloadVideoFrame = function(context, reader, length) {
-		let vframe = reader.parseVideoFrame(length);
-		let movie = this.movie();
-		let library = context.library.libraryForMovieMut(movie);
-		let v = library.characterById(vframe.streamId);
-		if (v) {
-			v.preloadSwfFrame(vframe);
-		}
-	}
-	MovieClipData.prototype.soundStreamHead = function(reader, staticData, version) {
-		staticData.audioStreamInfo = reader.parseSoundStreamHead(version);
-	}
-	MovieClipData.prototype.defineSound = function(context, reader, length) {
-		let swfSound = reader.parseDefineSound(length);
-		let library = context.library.libraryForMovieMut(this.movie());
-		return function(callback) {
-			context.audio.loadSound(swfSound, function(sound) {
-				library.registerCharacter(swfSound.id, sound);
-				callback();
-			});
-		}
-	}
-	MovieClipData.prototype.showFrame = function() {
-	}
-	const MovieClip = function(data) { 
-		DisplayObjectContainer.call(this);
-		this.data = data;
 		this.displayType = "MovieClip";
 		this._debug_colorDisplayType = [255, 0, 0, 1];
+		if (data) data.applyDisplayObject(this);
 	}
-	MovieClip.prototype = Object.create(DisplayObjectContainer.prototype);
-	MovieClip.prototype.constructor = MovieClip;
+	inherits(MovieClip, DisplayObjectContainer);
 	MovieClip.playerRootMovie = function(movie) {
-		let numFrames = movie.numFrames;
-		let mcd = new MovieClipData();
-		mcd.base = InteractiveObject.createInteractiveBase();
-		mcd.container = new ChildContainer();
-		mcd.isPlaying = true;
-		mcd.staticData = MovieClipStatic.withData(0, SwfSlice.from(movie), numFrames);
-		let mc = new MovieClip(mcd);
+		var numFrames = movie.numFrames;
+		const mc = new MovieClip();
+		mc.container = new ChildContainer();
+		mc.playFlag = true;
+		mc.staticData = MovieClipStatic.withData(0, SwfSlice.from(movie), numFrames);
 		mc.setIsRoot(true);
 		return mc;
 	}
 	MovieClip.createNewWithData = function(id, swf, numFrames) {
-		let mcd = new MovieClipData();
-		mcd.base = InteractiveObject.createInteractiveBase();
-		mcd.container = new ChildContainer();
-		mcd.staticData = MovieClipStatic.withData(id, swf, numFrames);
-		mcd.isPlaying = true;
-		return new MovieClip(mcd);
+		const mc = new MovieClip();
+		mc.staticData = MovieClipStatic.withData(id, swf, numFrames);
+		mc.playFlag = true;
+		return mc;
+	}
+	MovieClip.prototype.applyDisplayObject = function(displayObject) {
+		MovieClip.parent.prototype.applyDisplayObject.call(this, displayObject);
+		displayObject.staticData = this.staticData;
+		displayObject.container = new ChildContainer();
+		displayObject._currentFrame = this._currentFrame;
+		displayObject.playFlag = this.playFlag;
+		displayObject.loopFlag = this.loopFlag;
+		displayObject.INITIALIZED = this.INITIALIZED;
+		displayObject.PROGRAMMATICALLY_PLAYED = this.PROGRAMMATICALLY_PLAYED;
+		displayObject.EXECUTING_AVM2_FRAME_SCRIPT = this.EXECUTING_AVM2_FRAME_SCRIPT;
+		displayObject.LOOP_QUEUED = this.LOOP_QUEUED;
 	}
 	MovieClip.prototype.totalframes = function() {
-		return this.data.totalframes();
+		return this.staticData.totalframes;
 	}
 	MovieClip.prototype.framesloaded = function() {
-		return this.data.framesloaded;
+		return this.staticData.preloadProgress.curPreloadFrame - 1;
 	}
 	MovieClip.prototype.movie = function() {
-		return this.data.movie();
+		return this.staticData.swf.movie;
 	}
 	MovieClip.prototype.currentFrame = function() {
-		return this.data.currentFrame;
+		return this._currentFrame;
 	}
 	MovieClip.prototype.setCurrentFrame = function(frame) {
-		this.data.currentFrame = frame;
+		this._currentFrame = frame;
 	}
 	MovieClip.prototype.isPlaying = function() {
-		return this.data.isPlaying;
+		return this.playFlag;
 	}
 	MovieClip.prototype.setIsPlaying = function(bool) {
-		this.data.isPlaying = bool;
+		this.playFlag = bool;
 	}
 	MovieClip.prototype.rawContainer = function() {
-		return this.data.container;
-	}
-	MovieClip.prototype.getBase = function() {
-		return this.data.base.base;
+		return this.container;
 	}
 	MovieClip.prototype.getId = function() {
-		return this.data.staticData.id;
+		return this.staticData.id;
 	}
 	MovieClip.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {
 		this.setDefaultInstanceName(context);
 		context.avm1.addExecuteList(this);
 	}
-	MovieClip.prototype.preload = function(context, callback) {
-		let mc = this.data;
-		let staticData = mc.staticData;
-		let preloadProgress = staticData.preloadProgress;
-		let g = staticData.swf.readFrom(0);
-		let awaitCallback = null;
+	MovieClip.prototype.preload = function(context, chunkLimit) {
+		const staticData = this.staticData;
+
+		const preloadProgress = staticData.preloadProgress;
+		var nextPreloadChunk = preloadProgress.nextPreloadChunk;
+		var curPreloadSymbol = preloadProgress.curPreloadSymbol;
+
+		if (nextPreloadChunk < 0) return true;
+
+		var g = staticData.swf.readFrom(nextPreloadChunk);
+
+		if (curPreloadSymbol !== null) {
+			var preloadSymbol = context.library.libraryForMovieMut(this.movie()).characterById(curPreloadSymbol);
+
+			let sub_preload_done = preloadSymbol.preload(context, chunkLimit);
+			if (sub_preload_done) {
+				preloadProgress.curPreloadSymbol = null;
+			}
+		}
+
 		let endTagFound = false;
-		let tagCallback = (reader, tagCode, tagLength) => {
-			awaitCallback = null;
+
+		let subPreloadDone = preloadProgress.curPreloadSymbol === null;
+		
+		const tagCallback = function(reader, tagCode, tagLength) {
 			switch(tagCode) {
 				case 0:
 					endTagFound = true;
@@ -5119,89 +4606,89 @@ var PinkFie = (function() {
 					staticData.timelineTags.push('next');
 					break;
 				case 2:
-					mc.defineShape(context, reader, 1);
+					this.defineShape(context, reader, 1);
 					break;
 				case 22:
-					mc.defineShape(context, reader, 2);
+					this.defineShape(context, reader, 2);
 					break;
 				case 32:
-					mc.defineShape(context, reader, 3);
+					this.defineShape(context, reader, 3);
 					break;
 				case 83:
-					mc.defineShape(context, reader, 4);
+					this.defineShape(context, reader, 4);
 					break;
 				case 14:
-					awaitCallback = mc.defineSound(context, reader, tagLength);
-					return true;
+					this.defineSound(context, reader, tagLength);
+					break;
 				case 46:
-					mc.defineMorphShape(context, reader, 1);
+					this.defineMorphShape(context, reader, 1);
 					break;
 				case 84:
-					mc.defineMorphShape(context, reader, 2);
+					this.defineMorphShape(context, reader, 2);
 					break;
 				case 11:
-					mc.defineText(context, reader, 1);
+					this.defineText(context, reader, 1);
 					break;
 				case 33:
-					mc.defineText(context, reader, 2);
+					this.defineText(context, reader, 2);
 					break;
 				case 10:
-					mc.defineFont(context, reader, 1, tagLength);
+					this.defineFont(context, reader, 1, tagLength);
 					break;
 				case 48:
-					mc.defineFont(context, reader, 2, tagLength);
+					this.defineFont(context, reader, 2, tagLength);
 					break;
 				case 75:
-					mc.defineFont(context, reader, 3, tagLength);
+					this.defineFont(context, reader, 3, tagLength);
 					break;
 				case 91:
-					mc.defineFont(context, reader, 4, tagLength);
+					this.defineFont(context, reader, 4, tagLength);
 					break;
 				case 37:
-					mc.defineEditText(context, reader);
+					this.defineEditText(context, reader);
 					break;
 				case 7:
-					mc.defineButton1(context, reader, tagLength);
+					this.defineButton1(context, reader, tagLength);
 					break;
 				case 34:
-					mc.defineButton2(context, reader, tagLength);
+					this.defineButton2(context, reader, tagLength);
 					break;
 				case 20:
-					mc.defineBitsLossless(context, reader, 1, tagLength);
+					this.defineBitsLossless(context, reader, 1, tagLength);
 					break;
 				case 36:
-					mc.defineBitsLossless(context, reader, 2, tagLength);
+					this.defineBitsLossless(context, reader, 2, tagLength);
 					break;
 				case 8:
-					mc.jpegTables(context, reader, tagLength);
+					this.jpegTables(context, reader, tagLength);
 					break;
 				case 60:
-					mc.defineVideoStream(context, reader);
+					this.defineVideoStream(context, reader);
 					break;
 				case 61:
-					mc.preloadVideoFrame(context, reader, tagLength);
+					this.preloadVideoFrame(context, reader, tagLength);
 					break;
 				case 18:
-					mc.soundStreamHead(reader, staticData, 1);
+					this.soundStreamHead(reader, staticData, 1);
 					break;
 				case 45:
-					mc.soundStreamHead(reader, staticData, 2);
+					this.soundStreamHead(reader, staticData, 2);
 					break;
 				case 19:
 					staticData.timelineTags.push([5, reader.parseSoundStreamBlock(tagLength).compressed]);
 					break;
 				case 6:
-					awaitCallback = mc.defineBits(context, reader, 1, tagLength);
-					return true;
+					this.defineBits(context, reader, 1, tagLength);
+					break;
 				case 21:
-					awaitCallback = mc.defineBits(context, reader, 2, tagLength);
-					return true;
+					this.defineBits(context, reader, 2, tagLength);
+					break;
 				case 35:
-					awaitCallback = mc.defineBits(context, reader, 3, tagLength);
-					return true;
+					this.defineBits(context, reader, 3, tagLength);
+					break;
 				case 90:
-					awaitCallback = mc.defineBits(context, reader, 4, tagLength);
-					return true;
+					this.defineBits(context, reader, 4, tagLength);
+					break;
 				case 4:
 					staticData.timelineTags.push([1, reader.parsePlaceObject(1, tagLength)]);
 					break;
@@ -5224,53 +4711,72 @@ var PinkFie = (function() {
 					staticData.timelineTags.push([3, reader.parseStartSound(1)]);
 					break;
 				case 39:
-					awaitCallback = mc.defineSprite(context, reader, tagLength);
-					return true;
+					return this.defineSprite(context, reader, tagLength, chunkLimit);
+			}
+			if (chunkLimit.didOpsBreachLimit(context, tagLength)) {
+				return true;
 			}
 			return false;
 		};
-		let startTag = function() {
-			awaitCallback = null;
-			decodeTags(g, tagCallback);
-			preloadProgress.nextPreloadChunk = g.byteStream.position;
-			if (awaitCallback) {
-				awaitCallback(startTag)
-			} else {
-				if (endTagFound) {
-					if (staticData.audioStreamInfo) {
-						context.audio.loadStreamSound(staticData.audioStreamInfo, staticData.timelineTags, function(sound) {
-							staticData.audioStreamHandle = sound;
-							callback();
-						});
-					} else {
-						callback();
-					}
-				}    
+		var result;
+		if (subPreloadDone) {
+			result = decodeTags(g, tagCallback.bind(this));
+		} else {
+			result = true;
+		}
+
+		if (subPreloadDone) {
+			preloadProgress.nextPreloadChunk = g.input.position;
+		}
+
+		if (endTagFound) {
+			if (staticData.audioStreamInfo) {
+				staticData.audioStreamHandle = context.audio.loadStreamSound(staticData.audioStreamInfo, staticData.timelineTags);
 			}
 		}
-		startTag();
+		
+		var is_finished = endTagFound;
+		if (is_finished) {
+			preloadProgress.nextPreloadChunk = -1;
+		}
+
+		return is_finished;
 	}
 	MovieClip.prototype.play = function(context) {
-		this.data.play();
+		if (this.totalframes() > 1) {
+			this.playFlag = true;
+		}
 	}
 	MovieClip.prototype.stop = function(context) {
-		this.data.stop(context);
+		this.playFlag = false;
+		this.stopAudioStream(context);
+	}
+	MovieClip.prototype.stopAudioStream = function(context) {
+		if (this.audioStream) {
+			context.audio.stopStreamSound(this.audioStream);
+		}
 	}
 	MovieClip.prototype.getTotalBytes = function() {
-		return this.movie().uncompressedLength;
+		if (this.isRoot()) {
+			return this.movie().uncompressedLength;
+		} else {
+			return this.tagStreamLen();
+		}
 	}
 	MovieClip.prototype.getLoadedBytes = function() {
-		return this.data.staticData.preloadProgress.nextPreloadChunk;
+		if (this.staticData.preloadProgress.nextPreloadChunk < 0) {
+			return this.getTotalBytes();
+		} else {
+			return this.staticData.preloadProgress.nextPreloadChunk;
+		}
+	}
+	MovieClip.prototype.tagStreamLen = function() {
+		return this.staticData.swf.end - this.staticData.swf.start;
 	}
 	MovieClip.prototype.runFrameAvm1 = function(context) {
-		let mc = this.data;
-		var isLoadFrame = !mc.INITIALIZED;
-		if (isLoadFrame) {
-			mc.INITIALIZED = true;
-		}
-		if (this.isPlaying()) {
-			this.runIntervalFrame(context, true, true);
-		}
+		var isLoadFrame = !this.INITIALIZED;
+		if (isLoadFrame) this.INITIALIZED = true;
+		if (this.isPlaying()) this.runIntervalFrame(context, true, true);
 	}
 	MovieClip.prototype.determineNextFrame = function() {
 		if (this.currentFrame() < this.totalframes()) {
@@ -5281,11 +4787,29 @@ var PinkFie = (function() {
 			return "same";
 		}
 	}
+	MovieClip.prototype.setLoopQueued = function() {
+		this.LOOP_QUEUED = true;
+	}
+	MovieClip.prototype.unsetLoopQueued = function() {
+		this.LOOP_QUEUED = false;
+	}
+	MovieClip.prototype.gotoPlaceObject = function(context, place, gotoCommands, isRewind, index) {
+		const depth = place.depth;
+		const gotoPlace = new GotoPlaceObject(this._currentFrame, place, isRewind, index);
+		for (let i = 0; i < gotoCommands.length; i++) {
+			const gc = gotoCommands[i];
+			if (gc.getDepth() == depth) {
+				gc.merge(gotoPlace);
+				return;
+			}
+		}
+		gotoCommands.push(gotoPlace);
+	}
 	MovieClip.prototype.runIntervalFrame = function(context, runDisplayAction, runSounds) {
-		let nextFrame = this.determineNextFrame();
+		const nextFrame = this.determineNextFrame();
 		switch (nextFrame) {
 			case "next":
-				this.data.currentFrame++;
+				this._currentFrame++;
 				break;
 			case "first":
 				this.runGoto(context, 1, true);
@@ -5294,10 +4818,9 @@ var PinkFie = (function() {
 				this.stop(context);
 				break;
 		}
-		let mc = this.data;
-		let pos = mc.tagStreamPos;
-		while(pos < mc.staticData.timelineTags.length) {
-			let rTag = mc.staticData.timelineTags[pos];
+		let pos = this.tagStreamPos;
+		while(pos < this.staticData.timelineTags.length) {
+			let rTag = this.staticData.timelineTags[pos];
 			if (rTag == "next") {
 				pos++;
 				break;
@@ -5319,37 +4842,34 @@ var PinkFie = (function() {
 			}
 			pos++;
 		}
-		mc.tagStreamPos = pos;
-		if (mc.audioStream) {
-			if (!context.audio.isSoundPlaying(mc.audioStream)) {
-				mc.audioStream = null;
+		this.tagStreamPos = pos;
+		if (this.audioStream) {
+			if (!context.audio.isSoundPlaying(this.audioStream)) {
+				this.audioStream = null;
 			}
 		}
 	}
 	MovieClip.prototype.runGoto = function(context, frame, isImplicit) {
-		let mc = this.data;
 		let frameBeforeRewind = this.currentFrame();
 		this.setSkipNextEnterFrame(false);
 		let gotoCommands = [];
-		mc.stopAudioStream(context);
-		let isRewind = (frame <= mc.currentFrame);
+		this.stopAudioStream(context);
+		let isRewind = (frame <= this._currentFrame);
 		if (isRewind) {
-			mc.tagStreamPos = 0;
-			mc.currentFrame = 0;
+			this.tagStreamPos = 0;
+			this._currentFrame = 0;
 		}
-		let fromFrame = mc.currentFrame;
-		if (isImplicit) {
-			mc.setLoopQueued();
-		}
+		let fromFrame = this._currentFrame;
+		if (isImplicit) this.setLoopQueued();
 		let index = 0;
 		let clamped_frame = frame;
-		let pos = mc.tagStreamPos;
+		let pos = this.tagStreamPos;
 		let frame_pos = pos;
-		while (mc.currentFrame < clamped_frame) {
-			mc.currentFrame++;
+		while (this._currentFrame < clamped_frame) {
+			this._currentFrame++;
 			frame_pos = pos;
-			while(pos < mc.staticData.timelineTags.length) {
-				let rTag = mc.staticData.timelineTags[pos];
+			while(pos < this.staticData.timelineTags.length) {
+				let rTag = this.staticData.timelineTags[pos];
 				if (rTag == "next") {
 					pos++;
 					break;
@@ -5358,7 +4878,7 @@ var PinkFie = (function() {
 				switch(typ) {
 					case 1:
 						index++;
-						mc.gotoPlaceObject(context, rTag[1], gotoCommands, isRewind, index);
+						this.gotoPlaceObject(context, rTag[1], gotoCommands, isRewind, index);
 						break;
 					case 2:
 						this.gotoRemoveObject(context, rTag[1], gotoCommands, isRewind, fromFrame);
@@ -5367,7 +4887,7 @@ var PinkFie = (function() {
 				pos++;
 			}
 		}
-		let hitTargetFrame = mc.currentFrame == frame;
+		let hitTargetFrame = this._currentFrame == frame;
 		if (isRewind) {
 			let children = this.iterRenderList().filter(function (clip) {
 				return clip.placeFrame() > frame;
@@ -5407,8 +4927,8 @@ var PinkFie = (function() {
 			run_goto_command(goto)
 		});
 		if (hitTargetFrame) {
-			mc.currentFrame--;
-			mc.tagStreamPos = frame_pos;
+			this._currentFrame--;
+			this.tagStreamPos = frame_pos;
 			this.runIntervalFrame(context, false, frame != frameBeforeRewind);
 		} else {
 			this.setCurrentFrame(clamped_frame);
@@ -5430,11 +4950,8 @@ var PinkFie = (function() {
 		}
 	}
 	MovieClip.prototype.gotoFrame = function(context, frame, stop) {
-		if (stop) {
-			this.stop(context);
-		} else {
-			this.play(context);
-		}
+		if (stop) this.stop(context);
+		else this.play(context);
 		var _frame = Math.max(frame, 1);
 		if (_frame != this.currentFrame()) {
 			this.runGoto(context, _frame, false);
@@ -5500,17 +5017,149 @@ var PinkFie = (function() {
 		}
 	}
 	MovieClip.prototype.avm1Unload = function(context) {
-		var mc = this.data;
 		var children = this.iterRenderList();
 		for (let i = 0; i < children.length; i++) {
-			const child = children[i];
-			child.avm1Unload(context);
+			children[i].avm1Unload(context);
 		}
-		mc.stopAudioStream(context);
+		this.stopAudioStream(context);
 		this.setAvm1Removed(true);
 	}
 	MovieClip.prototype.instantiate = function() {
-		return new MovieClip(this.data.clone());
+		return new MovieClip(this);
+	}
+
+	// Preloading of definition tags
+	MovieClip.prototype.defineSprite = function(context, reader, tagLength, chunkLimit) {
+		const movie = this.movie();
+		let id = reader.input.readUint16();
+		let numFrames = reader.input.readUint16();
+		let movieClip = MovieClip.createNewWithData(id, this.staticData.swf.resizeToReader(reader, tagLength - 4), numFrames);
+		context.library.libraryForMovieMut(movie).registerCharacter(id, movieClip);
+		this.staticData.preloadProgress.curPreloadSymbol = id;
+		let should_exit = chunkLimit.didOpsBreachLimit(context, 4);
+		if (should_exit) {
+			return true;
+		}
+		if (movieClip.preload(context, chunkLimit)) {
+			this.staticData.preloadProgress.curPreloadSymbol = null;
+			return false;
+		} else {
+			return true;
+		}
+	}
+	MovieClip.prototype.defineShape = function(context, reader, version) {
+		const movie = this.movie();
+		let swfShape = reader.parseDefineShape(version);
+		let id = swfShape.id;
+		let graphic = Graphic.fromSwfTag(context, swfShape, movie);
+		context.library.libraryForMovieMut(movie).registerCharacter(id, graphic);
+	}
+	MovieClip.prototype.defineMorphShape = function(context, reader, version) {
+		const movie = this.movie();
+		let tag = reader.parseDefineMorphShape(version);
+		let id = tag.id;
+		let morph_shape = MorphShape.fromSwfTag(tag, movie);
+		context.library.libraryForMovieMut(movie).registerCharacter(id, morph_shape);
+	}
+	MovieClip.prototype.defineText = function(context, reader, version) {
+		const movie = this.movie();
+		let text = reader.parseDefineText(version);
+		let textObject = StaticText.fromSwfTag(context, movie, text);
+		context.library.libraryForMovieMut(movie).registerCharacter(text.id, textObject);
+	}
+	MovieClip.prototype.defineFont = function(context, reader, version, tagLength) {
+		const movie = this.movie();
+		let font;
+		if (version == 1) {
+			font = reader.parseDefineFont1(tagLength);
+		} else if (version == 2) {
+			font = reader.parseDefineFont2(2, tagLength);
+		} else if (version == 3) {
+			font = reader.parseDefineFont2(3, tagLength);
+		} else if (version == 4) {
+			console.log("DefineFont4 tag (TLF text) is not implemented");
+			font = reader.parseDefineFont4(tagLength);
+			console.log(font);
+		}
+		let fontId = font.id;
+		let fontObject = FlashFont.fromSwfTag(context.renderer, font);
+		context.library.libraryForMovieMut(movie).registerCharacter(fontId, fontObject);
+	}
+	MovieClip.prototype.defineButton1 = function(context, reader, tagLength) {
+		let swfButton = reader.parseDefineButton(1, tagLength);
+		this.defineButtonAny(context, swfButton);
+	}
+	MovieClip.prototype.defineButton2 = function(context, reader, tagLength) {
+		let swfButton = reader.parseDefineButton(2, tagLength);
+		this.defineButtonAny(context, swfButton);
+	}
+	MovieClip.prototype.defineButtonAny = function(context, swfButton) {
+		const movie = this.movie();
+		let button = Avm1Buttom.fromSwfTag(swfButton, this.staticData.swf);
+		let library = context.library.libraryForMovieMut(movie);
+		library.registerCharacter(swfButton.id, button);
+	}
+	MovieClip.prototype.defineEditText = function(context, reader) {
+		const movie = this.movie();
+		let swf_edit_text = reader.parseDefineEditText();
+		let edit_text = TextField.fromSwfTag(context, movie, swf_edit_text);
+		let library = context.library.libraryForMovieMut(movie);
+		library.registerCharacter(swf_edit_text.id, edit_text);
+	}
+	MovieClip.prototype.defineBitsLossless = function(context, reader, version, tagLength) {
+		const movie = this.movie();
+		let define_bits_lossless = reader.parseDefineBitsLossLess(version, tagLength);
+		let bitmap = decodeDefineBitsLossless(define_bits_lossless);
+		let imageInterval = context.renderer.createImageInterval();
+		imageInterval.setImage(bitmap);
+		let _bitmap = BitmapGraphic.createNew(context, define_bits_lossless.id, imageInterval);
+		let library = context.library.libraryForMovieMut(movie);
+		library.registerCharacter(define_bits_lossless.id, _bitmap);
+	}
+	MovieClip.prototype.jpegTables = function(context, reader, length) {
+		const movie = this.movie();
+		let jpeg_data = reader.input.readBytes(length);
+		let library = context.library.libraryForMovieMut(movie);
+		library.setJpegTables(jpeg_data);
+	}
+	MovieClip.prototype.defineBits = function(context, reader, version, length) {
+		const movie = this.movie();
+		let library = context.library.libraryForMovieMut(movie);
+		let swfBits = reader.parseDefineBits(version, length);
+		let jpeg_tables = (version == 1) ? library.jpegTables : null;
+		let jpeg_data = glueTablesToJpeg(new Uint8Array(swfBits.data), jpeg_tables);
+		let imageInterval = context.renderer.createImageInterval();
+		let _bitmap = BitmapGraphic.createNew(context, swfBits.id, imageInterval);
+		library.registerCharacter(swfBits.id, _bitmap);
+		decodeDefineBitsJpeg(jpeg_data, swfBits.alphaData, function(bitmap) {
+			imageInterval.setImage(bitmap);
+		});
+	}
+	MovieClip.prototype.defineVideoStream = function(context, reader) {
+		const movie = this.movie();
+		let streamdef = reader.parseDefineVideoStream();
+		let id = streamdef.id;
+		let video = DisplayVideoStream.fromSwfTag(movie, streamdef);
+		let library = context.library.libraryForMovieMut(movie);
+		library.registerCharacter(id, video);
+	}
+	MovieClip.prototype.preloadVideoFrame = function(context, reader, length) {
+		let vframe = reader.parseVideoFrame(length);
+		const movie = this.movie();
+		let library = context.library.libraryForMovieMut(movie);
+		let v = library.characterById(vframe.streamId);
+		if (v) v.preloadSwfFrame(vframe);
+	}
+	MovieClip.prototype.soundStreamHead = function(reader, staticData, version) {
+		staticData.audioStreamInfo = reader.parseSoundStreamHead(version);
+	}
+	MovieClip.prototype.defineSound = function(context, reader, length) {
+		const swfSound = reader.parseDefineSound(length);
+		var library = context.library.libraryForMovieMut(this.movie());
+		var handle = context.audio.registerSound(swfSound);
+		library.registerCharacter(swfSound.id, handle);
+	}
+	MovieClip.prototype.showFrame = function() {
 	}
 
 	// Control tags
@@ -5543,10 +5192,9 @@ var PinkFie = (function() {
 	}
 	MovieClip.prototype.queueRemoveObject = function(context, tag) {}
 	MovieClip.prototype.soundStreamBlock = function(context, block) {
-		var mc = this.data;
-		if (mc.isPlaying && mc.staticData.audioStreamInfo) {
-			let audioStream = context.audio.startStream(mc.staticData.audioStreamHandle, mc, mc.currentFrame, block, mc.staticData.audioStreamInfo);
-			mc.audioStream = audioStream;
+		if (this.isPlaying() && this.staticData.audioStreamInfo && this.staticData.audioStreamHandle) {
+			let audioStream = context.audio.startStream(this.staticData.audioStreamHandle, this, this._currentFrame, block, this.staticData.audioStreamInfo);
+			this.audioStream = audioStream;
 		}
 	}
 	MovieClip.prototype.startSound1 = function(context, tag) {
@@ -5602,9 +5250,7 @@ var PinkFie = (function() {
 		var next = this.clipExecList;
 		while (true) {
 			var clip = next;
-			if (!clip) {
-				break;
-			}
+			if (!clip) break;
 			next = clip.nextAvm1Clip();
 			if (clip.avm1Removed()) {
 				if (prev) {
@@ -5625,724 +5271,309 @@ var PinkFie = (function() {
 			this.clipExecList = clip;
 		}
 	}
-	const JSNellymoserDecoder = (function() {
-		const Bits = function() {
-			this.bytePos = 0;
-			this.bitPos = 0;
+	const convertToMp3A = function(b, bufferMP3, seekSample) {
+		var g = b.numberOfChannels, h = b.length, j = b.sampleRate, k = bufferMP3.sampleRate;
+		var q = bufferMP3.getChannelData(0);
+		var w = ((g == 2) ? bufferMP3.getChannelData(1) : null);
+		var a = b.getChannelData(0);
+		var s = ((g == 2) ? b.getChannelData(1) : null);
+		for (let i = 0; i < h; i++) {
+			let r = (((i + seekSample) / j) * k) | 0;
+			a[i] = q[r] || 0;
+			if (g == 2) s[i] = w[r] || 0;
 		}
-		Bits.prototype.pop = function(len, buf) {
-			let val = (buf[this.bytePos] & 0xff) >> this.bitPos;
-			let bits_read = 8 - this.bitPos;
-			if (len >= bits_read) {
-				this.bytePos++;
-				if (len > bits_read) val |= buf[this.bytePos] << bits_read;
+	}
+	const RawDecoder = function(data, isStereo, is16Bit) {
+		this.input = new ByteInput(data);
+		this.isStereo = isStereo;
+		this.is16Bit = is16Bit;
+		this.l = 0;
+		this.r = 0;
+	}
+	RawDecoder.prototype.readSample = function() {
+		return this.is16Bit ? (this.input.readInt16() / 32768) : ((this.input.readUint8() - 128) / 128);
+	}
+	RawDecoder.prototype.next = function() {
+		try {
+			if (!this.isEnd) {
+				let left = this.readSample(), right = this.isStereo ? this.readSample() : left;
+				this.l = left, this.r = right;
 			}
-			this.bitPos = (this.bitPos + len) & 7;
-			return val & ((1 << len) - 1);
+		} catch(e) {
+			this.isEnd = true;
 		}
-		const NormalizedInt32 = function(val) {
-			this.value = 0;
-			this.scale = 0;
-			if (val == 0) {
-				this.value = val;
-				this.scale = 31;
-				return;
-			} else if (val >= (1 << 30)) {
-				this.value = 0;
-				this.scale = 0;
-				return;
+	}
+	const AdpcmDecoder = function(data, isStereo) {
+		this.input = new ByteInput(data);
+		this.channels = (isStereo ? 2 : 1);
+		this.c = [{}, {}];
+		this.bits_per_sample = (this.input.readUB(2) + 2);
+		this.decoder = AdpcmDecoder.SAMPLE_DELTA_CALCULATOR[this.bits_per_sample - 2];
+		this.l = 0;
+		this.r = 0;
+		this.isEnd = false;
+		this.sample_num = 0;
+	}
+	AdpcmDecoder.INDEX_TABLE = [[-1, 2], [-1, -1, 2, 4], [-1, -1, -1, -1, 2, 4, 6, 8], [-1, -1, -1, -1, -1, -1, -1, -1, 1, 2, 4, 6, 8, 10, 13, 16]];
+	AdpcmDecoder.STEP_TABLE = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767,];
+	AdpcmDecoder.SAMPLE_DELTA_CALCULATOR = [
+		function(a, b) {
+			let c = a >> 1;
+			if (b & 1) c += a;
+			return c;
+		},
+		function(a, b) {
+			let c = a >> 2;
+			if (b & 1) c += a >> 1;
+			if (b & 2) c += a;
+			return c;
+		},
+		function(a, b) {
+			let c = a >> 3;
+			if (b & 1) c += a >> 2;
+			if (b & 2) c += a >> 1;
+			if (b & 4) c += a;
+			return c;
+		},
+		function(a, b) {
+			let c = a >> 4;
+			if (b & 1) c += a >> 3;
+			if (b & 2) c += a >> 2;
+			if (b & 4) c += a >> 1;
+			if (b & 8) c += a;
+			return c;
+		}
+	];
+	AdpcmDecoder.prototype.next  = function() {
+		const j = this.input, m = this.bits_per_sample, d = this.decoder, _ = this.c, s = this.channels, h = (1 << (m - 1));
+		try {
+			if (!this.isEnd) {
+				if (this.sample_num == 0) {
+					for (let i = 0; i < s; i++) {
+						let w = _[i];
+						w.sample = j.readSB(16);
+						w.stepIndex = j.readUB(6);
+					}
+				}
+				this.sample_num = (this.sample_num + 1) % 4095;
+				for (let i2 = 0; i2 < s; i2++) {
+					let w = _[i2];
+					let r = AdpcmDecoder.STEP_TABLE[w.stepIndex];
+					let p = j.readUB(m);
+					let g = (p & (h - 1));
+					let delta = d(r, g);
+					w.sample = Math.max(-32768, Math.min(32767, w.sample + ((p & h) ? (0 - delta) : delta)));
+					w.stepIndex = Math.max(0, Math.min(88, w.stepIndex + AdpcmDecoder.INDEX_TABLE[m - 2][g]));
+				}
+				this.l = _[0].sample / 0x8000;
+				this.r = (s == 2) ? _[1].sample / 0x8000 : this.l;
 			}
-			let v = val;
-			let s = 0;
-			if (v > 0) {
-				do {
-					v <<= 1;
-					++s;
-				} while (v < (1 << 30));
+		} catch(e) {
+			this.isEnd = true;
+		}
+	}
+	function decodePCM(data, buffer, channels, is16Bit, pos_buffer, sample_length) {
+		const raw = new RawDecoder(data, channels == 2, is16Bit);
+		var _pos_buffer = pos_buffer || 0;
+		var i = _pos_buffer;
+		var a = buffer.getChannelData(0);
+		var s = ((channels == 2) ? buffer.getChannelData(1) : null);
+		while((i - _pos_buffer) < sample_length) {
+			raw.next();
+			a[i] = raw.l;
+			if (channels == 2) s[i] = raw.r;
+			i++;
+		}
+		return i;
+	}
+	function decodeADPCM(data, buffer, channels, pos_buffer, sample_length) {
+		const adpcm = new AdpcmDecoder(data, channels == 2);
+		var _ = pos_buffer || 0;
+		var q = _;
+		let a = buffer.getChannelData(0);
+		let s = ((channels == 2) ? buffer.getChannelData(1) : null);
+		while((q - _) < sample_length) {
+			adpcm.next();
+			a[q] = adpcm.l;
+			if (channels == 2) s[q] = adpcm.r;
+			q++;
+		}
+		return q;
+	}
+	function decodeMP3(audioContext, data, buffer) {
+		var byteStream = new ByteInput(data);
+		var seekSample = byteStream.readInt16();
+		var mp3data = data.slice(2);
+		audioContext.decodeAudioData(mp3data, function(f) {
+			convertToMp3A(buffer, f, seekSample);
+		}, function() {});
+	}
+	function decodeMP3SoundStream(audioContext, blocks, streamInfo, buffer) {
+		var gg1 = 0;
+		for (var i = 0; i < blocks.length; i++) gg1 += (blocks[i].byteLength - 4);
+		var gg = new Uint8Array(gg1);
+		var idd = 0;
+		for (var i = 0; i < blocks.length; i++) {
+			var ui8view = new Uint8Array(blocks[i], 4);
+			gg.set(ui8view, idd);
+			idd += ui8view.length;
+		}
+		var compressed = gg.buffer;
+		if (compressed.byteLength) {
+			audioContext.decodeAudioData(compressed, function(f) {
+				convertToMp3A(buffer, f, streamInfo.latencySeek || 0);
+			}, function(e) {});
+		}
+	}
+	function decodeNellymoser(b, a) {
+		var z = 0, x = new Float32Array(128), r = 0, k = a.getChannelData(0), c = new Float32Array(256);
+		while (r < b.byteLength) {
+			ATNellymoser.decode(x, new Uint8Array(b.slice(r, r + 64)), c);
+			for (let i = 0; i < 256; i++)
+				k[z] = (c[i] / 32768),
+				z++;
+			r += 64
+		}
+	}
+	function loadDefineSound(audioContext, sound) {
+		var format = sound.format;
+		var data = sound.data;
+		var numSamples = sound.numSamples;
+		var channels = (format.isStereo ? 2 : 1);
+		var is16Bit = format.is16Bit;
+		var buffer = audioContext.createBuffer(channels, numSamples, format.sampleRate);
+		switch(format.compression) {
+			case "ADPCM":
+				decodeADPCM(data, buffer, channels, 0, numSamples);
+				break;
+			case "uncompressed":
+			case "uncompressedUnknownEndian":
+				decodePCM(data, buffer, channels, is16Bit, 0, numSamples);
+				break;
+			case "MP3":
+				decodeMP3(audioContext, data, buffer);
+				break;
+			case "nellymoser":
+				decodeNellymoser(data, buffer);
+				break;
+			default:
+				console.log("TODO: " + format.compression);
+		}
+		return buffer;
+	}
+	function getSampleMP3Blocks(blocks) {
+		var samples = 0;
+		for (var i = 0; i < blocks.length; i++) {
+			var arraybuffer = blocks[i].slice(0, 4);
+			var byte_input = new ByteInput(arraybuffer);
+			samples += byte_input.readUint16();
+		}
+		return samples;
+	}
+	function loadStreamSound(audioContext, blocks, streamInfo) {
+		var streamStream = streamInfo.stream;
+		var compression = streamStream.compression;
+		var samplePerBlock = streamInfo.samplePerBlock;
+		var numSamples = (blocks.length * streamInfo.samplePerBlock); // TODO
+		var channels = (streamStream.isStereo ? 2 : 1);
+		var is16Bit = streamStream.is16Bit;
+		var buffer = audioContext.createBuffer(channels, numSamples, streamStream.sampleRate);
+		if (compression == "MP3") {
+			decodeMP3SoundStream(audioContext, blocks, streamInfo, buffer);
+		} else {
+			if (compression == "nellymoser") {
+				var gg1 = 0;
+				for (var i = 0; i < blocks.length; i++) gg1 += blocks[i].byteLength;
+				var gg = new Uint8Array(gg1);
+				var idd = 0;
+				for (var i = 0; i < blocks.length; i++) {
+					var ui8view = new Uint8Array(blocks[i]);
+					gg.set(ui8view, idd);
+					idd += ui8view.length;
+				}
+				var compressed = gg.buffer;
+				decodeNellymoser(compressed, buffer);
 			} else {
-				let floor = 1 << 31;
-				do {
-					v <<= 1;
-					++s;
-				} while (v > floor + (1 << 30));
-			}
-			this.value = v;
-			this.scale = s;
-		}
-		const bandBound = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 37, 43, 49, 56, 64, 73, 83, 95, 109, 124];
-		const gainBit = [6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-		const table1 = [3134,5342,6870,7792,8569,9185,9744,10191,10631,11061,11434,11770,12116,12513,12925,13300,13674,14027,14352,14716,15117,15477,15824,16157,16513,16804,17090,17401,17679,17948,18238,18520,18764,19078,19381,19640,19921,20205,20500,20813,21162,21465,21794,22137,22453,22756,23067,23350,23636,23926,24227,24521,24819,25107,25414,25730,26120,26497,26895,27344,27877,28463,29426,31355]
-		const table2 = [-11725,-9420,-7910,-6801,-5948,-5233,-4599,-4039,-3507,-3030,-2596,-2170,-1774,-1383,-1016,-660,-329,-1,337,696,1085,1512,1962,2433,2968,3569,4314,5279,6622,8154,10076,12975]
-		const table3 = [0,-0.847256005,0.722470999,-1.52474797,-0.453148007,0.375360996,1.47178996,-1.98225796,-1.19293797,-0.582937002,-0.0693780035,0.390956998,0.906920016,1.486274,2.22154093,-2.38878703,-1.80675399,-1.41054201,-1.07736099,-0.799501002,-0.555810988,-0.333402008,-0.132449001,0.0568020009,0.254877001,0.477355003,0.738685012,1.04430604,1.39544594,1.80987501,2.39187598,-2.38938308,-1.98846805,-1.75140405,-1.56431198,-1.39221299,-1.216465,-1.04694998,-0.890510023,-0.764558017,-0.645457983,-0.52592802,-0.405954987,-0.302971989,-0.209690005,-0.123986997,-0.0479229987,0.025773,0.100134,0.173718005,0.258554012,0.352290004,0.456988007,0.576775014,0.700316012,0.842552006,1.00938797,1.18213499,1.35345602,1.53208196,1.73326194,1.97223496,2.39781404,-2.5756309,-2.05733204,-1.89849198,-1.77278101,-1.66626,-1.57421803,-1.49933195,-1.43166399,-1.36522806,-1.30009902,-1.22809303,-1.15885794,-1.09212506,-1.013574,-0.920284986,-0.828705013,-0.737488985,-0.644775987,-0.559094012,-0.485713989,-0.411031991,-0.345970005,-0.285115987,-0.234162003,-0.187058002,-0.144250005,-0.110716999,-0.0739680007,-0.0365610011,-0.00732900016,0.0203610007,0.0479039997,0.0751969963,0.0980999991,0.122038998,0.145899996,0.169434994,0.197045997,0.225243002,0.255686998,0.287010014,0.319709986,0.352582991,0.388906986,0.433492005,0.476945996,0.520482004,0.564453006,0.612204015,0.668592989,0.734165013,0.803215981,0.878404021,0.956620991,1.03970695,1.12937701,1.22111595,1.30802798,1.40248001,1.50568199,1.62277305,1.77249599,1.94308805,2.29039311,0]
-		const table4 = [0.999981225,0.999529421,0.998475611,0.996820271,0.994564593,0.991709828,0.988257587,0.984210074,0.979569793,0.974339426,0.968522072,0.962121427,0.955141187,0.947585583,0.939459205,0.930767,0.921513975,0.911705971,0.901348829,0.890448689,0.879012227,0.867046177,0.854557991,0.841554999,0.828045011,0.81403631,0.799537301,0.784556627,0.769103289,0.753186822,0.736816585,0.720002472,0.702754676,0.685083687,0.666999876,0.64851439,0.629638195,0.610382795,0.590759695,0.570780694,0.550458014,0.529803574,0.50883007,0.487550199,0.465976506,0.444122106,0.422000289,0.399624199,0.377007395,0.354163498,0.331106305,0.307849586,0.284407496,0.260794103,0.237023607,0.213110298,0.189068705,0.164913103,0.1406582,0.116318598,0.0919089988,0.0674438998,0.0429382995,0.0184067003]
-		const table5 = [0.125,0.124962397,0.124849401,0.124661297,0.124398097,0.124059901,0.123647101,0.123159699,0.122598201,0.121962801,0.1212539,0.120471999,0.119617499,0.118690997,0.117693,0.116624102,0.115484901,0.114276201,0.112998702,0.111653,0.110240199,0.108760901,0.107216097,0.105606697,0.103933699,0.102198102,0.100400902,0.0985433012,0.0966262966,0.094651103,0.0926188976,0.0905309021,0.0883883014,0.0861926004,0.0839449018,0.0816465989,0.0792991966,0.076903902,0.0744623989,0.0719759986,0.069446303,0.0668746978,0.0642627999,0.0616123006,0.0589246005,0.0562013984,0.0534444004,0.0506552011,0.0478353985,0.0449868999,0.0421111993,0.0392102003,0.0362856016,0.0333391018,0.0303725004,0.0273876991,0.0243862998,0.0213702004,0.0183412991,0.0153013002,0.0122520998,0.0091955997,0.00613350002,0.00306769996]
-		const table6 = [-0.00613590004,-0.0306748003,-0.0551952012,-0.0796824023,-0.104121603,-0.128498107,-0.152797207,-0.177004203,-0.201104596,-0.225083902,-0.248927593,-0.272621393,-0.296150893,-0.319501996,-0.342660695,-0.365613014,-0.388345003,-0.410843194,-0.433093786,-0.455083609,-0.47679919,-0.498227686,-0.519356012,-0.540171504,-0.560661614,-0.580814004,-0.600616515,-0.620057225,-0.639124393,-0.657806695,-0.676092684,-0.693971515,-0.711432219,-0.728464425,-0.745057821,-0.761202395,-0.77688849,-0.792106628,-0.806847572,-0.8211025,-0.834862888,-0.848120272,-0.860866904,-0.873094976,-0.884797096,-0.895966172,-0.906595707,-0.916679084,-0.926210225,-0.935183525,-0.943593502,-0.95143503,-0.958703518,-0.965394378,-0.971503913,-0.977028072,-0.981963873,-0.986308098,-0.990058184,-0.993211925,-0.995767415,-0.997723103,-0.999077678,-0.999830604]
-		const table7 = [0.00613590004,0.0184067003,0.0306748003,0.0429382995,0.0551952012,0.0674438998,0.0796824023,0.0919089988,0.104121603,0.116318598,0.128498107,0.1406582,0.152797207,0.164913103,0.177004203,0.189068705,0.201104596,0.213110298,0.225083902,0.237023607,0.248927593,0.260794103,0.272621393,0.284407496,0.296150893,0.307849586,0.319501996,0.331106305,0.342660695,0.354163498,0.365613014,0.377007395,0.388345003,0.399624199,0.410843194,0.422000289,0.433093786,0.444122106,0.455083609,0.465976506,0.47679919,0.487550199,0.498227686,0.50883007,0.519356012,0.529803574,0.540171504,0.550458014,0.560661614,0.570780694,0.580814004,0.590759695,0.600616515,0.610382795,0.620057225,0.629638195,0.639124393,0.64851439,0.657806695,0.666999876,0.676092684,0.685083687,0.693971515,0.702754676,0.711432219,0.720002472,0.728464425,0.736816585,0.745057821,0.753186822,0.761202395,0.769103289,0.77688849,0.784556627,0.792106628,0.799537301,0.806847572,0.81403631,0.8211025,0.828045011,0.834862888,0.841554999,0.848120272,0.854557991,0.860866904,0.867046177,0.873094976,0.879012227,0.884797096,0.890448689,0.895966172,0.901348829,0.906595707,0.911705971,0.916679084,0.921513975,0.926210225,0.930767,0.935183525,0.939459205,0.943593502,0.947585583,0.95143503,0.955141187,0.958703518,0.962121427,0.965394378,0.968522072,0.971503913,0.974339426,0.977028072,0.979569793,0.981963873,0.984210074,0.986308098,0.988257587,0.990058184,0.991709828,0.993211925,0.994564593,0.995767415,0.996820271,0.997723103,0.998475611,0.999077678,0.999529421,0.999830604,0.999981225]
-		const table9 = [32767,30840,29127,27594,26214,24966,23831,22795,21845,20972,20165,19418,18725,18079,17476,16913,16384,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		const table10 = [0,0.0122715384,0.024541229,0.0368072242,0.0490676723,0.061320737,0.0735645667,0.0857973099,0.0980171412,0.110222213,0.122410677,0.134580716,0.146730468,0.158858135,0.170961887,0.183039889,0.195090324,0.207111374,0.219101235,0.231058106,0.242980182,0.254865646,0.266712755,0.27851969,0.290284693,0.302005947,0.313681751,0.32531029,0.336889863,0.348418683,0.359895051,0.371317178,0.382683426,0.393992037,0.405241311,0.416429549,0.427555084,0.438616246,0.449611336,0.460538715,0.471396744,0.482183784,0.492898196,0.50353837,0.514102757,0.524589658,0.534997642,0.545324981,0.555570245,0.565731823,0.575808167,0.585797846,0.59569931,0.605511069,0.615231574,0.624859512,0.634393275,0.643831551,0.653172851,0.662415802,0.671558976,0.680601001,0.689540565,0.698376238,0.707106769,0.715730846,0.724247098,0.732654274,0.740951121,0.749136388,0.757208824,0.765167296,0.773010433,0.780737221,0.78834641,0.795836926,0.803207517,0.81045723,0.817584813,0.824589312,0.831469595,0.838224709,0.84485358,0.851355195,0.857728601,0.863972843,0.870086968,0.876070082,0.881921232,0.887639642,0.893224299,0.898674488,0.903989315,0.909168005,0.914209783,0.919113874,0.923879504,0.928506076,0.932992816,0.937339008,0.941544056,0.945607305,0.949528158,0.953306019,0.956940353,0.960430503,0.963776052,0.966976464,0.970031261,0.972939968,0.975702107,0.97831738,0.980785251,0.983105481,0.985277653,0.987301409,0.989176512,0.990902662,0.992479503,0.993906975,0.99518472,0.996312618,0.997290432,0.998118103,0.99879545,0.999322355,0.999698818,0.999924719,1]
-		const NELLY_BLOCK_LEN = 64;
-		const NELLY_DETAIL_BITS = 198;
-		const NELLY_BUF_LEN = 128;
-		const NELLY_FILL_LEN = 124;
-		const NELLY_BASE_OFF = 4228;
-		const NELLY_BASE_SHIFT = 19;
-		const NELLY_SAMPLES = NELLY_BUF_LEN * 2;
-		const Factor = function(val) {
-			this.value = 0;
-			this.shift = 0;
-			if (val == NELLY_FILL_LEN) {
-				this.value = NELLY_BASE_OFF;
-				this.shift = NELLY_BASE_SHIFT;
-				return;
-			} else if (val == 0) {
-				this.value = 0;
-				this.shift = 0;
-				return;
-			}
-			let sign = ((~val >>> 31) << 1) - 1;
-			let abs = val * sign;
-			let scale = -1;
-			while ((abs & (1 << 15)) == 0) {
-				abs <<= 1;
-				scale++;
-			}
-			abs >>= 1;
-			this.shift = 27 - scale;
-			let table_val = table9[(abs - 0x3e00) >> 10];
-			let tmp = abs * table_val;
-			tmp = (1 << 30) - tmp;
-			tmp += (1 << 14);
-			tmp >>= 15;
-			tmp *= table_val;
-			tmp += (1 << 14);
-			tmp >>= 15;
-			let tmp2 = tmp;
-			tmp *= abs;
-			tmp = (1 << 29) - tmp;
-			tmp += (1 << 14);
-			tmp >>= 15;
-			tmp *= tmp2;
-			tmp += (1 << 13);
-			tmp >>= 14;
-			tmp *= sign;
-			if (tmp > 32767 && sign == 1) tmp = 32767; else if (tmp < -32768 && sign == -1) tmp = -32768;
-			this.value = tmp;
-		}
-		const getD = function(_in, scale, len, upper_bound, base) {
-			var d = 0;
-			if (len <= 0) return (d | 0);
-			var var_1 = 1 << (scale - 1);
-			for (var i = 0; i < len; ++i) {
-				var var_2 = _in[i] - base;
-				if (var_2 < 0) var_2 = 0; else var_2 = (var_2 + var_1) >> scale;
-				d += Math.min(var_2, upper_bound);
-			}
-			return (d | 0);
-		}
-		const wc = function(_in, len, total_bits, packed_sizes) {
-			var max_input = 0;
-			for (var i = 0; i < len; ++i) {
-				if (_in[i] > max_input) {
-					max_input = _in[i];
+				var oPos = 0;
+				for (let i = 0; i < blocks.length; i++) {
+					const block = blocks[i];
+					var posBuffer = 0;
+					switch(compression) {
+						case "ADPCM":
+							posBuffer = decodeADPCM(block, buffer, channels, oPos, samplePerBlock);
+							break;
+						case "uncompressed":
+						case "uncompressedUnknownEndian":
+							posBuffer = decodePCM(block, buffer, channels, is16Bit, oPos, samplePerBlock);
+							break;
+						default:
+							console.log("TODO: " + compression);
+					}
+					oPos = posBuffer;
 				}
 			}
-			var max_input_scale = 0;
-			var normalized = new NormalizedInt32(max_input);
-			max_input_scale = normalized.scale - 16;
-			var scaled_input = new Int16Array(NELLY_FILL_LEN);
-			if (max_input_scale < 0) for (var i = 0; i < len; ++i) scaled_input[i] = (_in[i] >> -max_input_scale); else for (var i = 0; i < len; ++i) scaled_input[i] = (_in[i] << max_input_scale);
-			var factor = new Factor(len);
-			for (var i = 0; i < len; ++i) scaled_input[i] = ((scaled_input[i] * 3) >> 2);
-			var scaled_input_sum = 0;
-			for (var i = 0; i < len; ++i) scaled_input_sum += scaled_input[i];
-			max_input_scale += 11;
-			scaled_input_sum -= total_bits << max_input_scale;
-			var scaled_input_base = 0;
-			var val = scaled_input_sum - (total_bits << max_input_scale);
-			var normalized = new NormalizedInt32(val);
-			scaled_input_base = ((val >> 16) * factor.value) >> 15;
-			var shift = 31 - factor.shift - normalized.scale;
-			if (shift >= 0) scaled_input_base <<= shift; else scaled_input_base >>= -shift;
-			var bits_used = getD(scaled_input, max_input_scale, len, 6, scaled_input_base);
-			if (bits_used != total_bits) {
-				var diff = (bits_used - total_bits);
-				var diff_scale = 0;
-				if (diff <= 0) {
-					for (; diff >= -16384; diff <<= 1) diff_scale++;
+		}
+		return buffer;
+	}
+	function loadStreamSoundTimeline(audioContext, tags, streamInfo) {
+		var streamSounds = [];
+		var blocks = [];
+		var frameCount = 0;
+		var startFrame = 0;
+		var streamBlock = null;
+		var tagId = 0;
+		while (tagId < tags.length) {
+			var tag = tags[tagId++];
+			if (tag == "next") {
+				frameCount++;
+				if (streamBlock) {
+					if (!blocks.length) startFrame = frameCount;
+					blocks.push(streamBlock);
+					streamBlock = null;
 				} else {
-					for (; diff < 16384; diff <<= 1) diff_scale++;
-				}
-				var base_delta = (diff * factor.value) >> 15;
-				diff_scale = max_input_scale - (factor.shift + diff_scale - 15);
-				if (diff_scale >= 0) {
-					base_delta <<= diff_scale;
-				} else {
-					base_delta >>= -diff_scale;
-				}
-				var num_revisions = 1;
-				var last_bits_used = 0;
-				var last_scaled_input_base = 0;
-				for (;;) {
-					last_bits_used = bits_used;
-					last_scaled_input_base = scaled_input_base;
-					scaled_input_base += base_delta;
-					bits_used = getD(scaled_input, max_input_scale, len, 6, scaled_input_base);
-					if (++num_revisions > 19) break;
-					if ((bits_used - total_bits) * (last_bits_used - total_bits) <= 0) break;
-				}
-				if (bits_used != total_bits) {
-					var scaled_input_base_1 = 0;
-					var bits_used_1 = 0;
-					var bits_used_2 = 0;
-					if (bits_used > total_bits) {
-						scaled_input_base_1 = scaled_input_base;
-						scaled_input_base = last_scaled_input_base;
-						bits_used_1 = bits_used;
-						bits_used_2 = last_bits_used;
-					} else {
-						scaled_input_base_1 = last_scaled_input_base;
-						bits_used_1 = last_bits_used;
-						bits_used_2 = bits_used;
-					}
-					while (bits_used != total_bits && num_revisions < 20) {
-						var avg = (scaled_input_base + scaled_input_base_1) >> 1;
-						bits_used = getD(scaled_input, max_input_scale, len, 6, avg);
-						++num_revisions;
-						if (bits_used > total_bits) {
-							scaled_input_base_1 = avg;
-							bits_used_1 = bits_used;
-						} else {
-							scaled_input_base = avg;
-							bits_used_2 = bits_used;
-						}
-					}
-					var dev_1 = Math.abs((bits_used_1 - total_bits) | 0);
-					var dev_2 = Math.abs((bits_used_2 - total_bits) | 0);
-					if (dev_1 < dev_2) {
-						scaled_input_base = scaled_input_base_1;
-						bits_used = bits_used_1;
-					} else {
-						bits_used = bits_used_2;
+					if (blocks.length) {
+						streamSounds.push({
+							startFrame,
+							blocks
+						});
+						blocks = [];
 					}
 				}
-			}
-			for (var i = 0; i < len; ++i) {
-				var tmp = scaled_input[i] - scaled_input_base;
-				if (tmp >= 0) {
-					tmp = (tmp + (1 << (max_input_scale - 1))) >> max_input_scale;
-				} else {
-					tmp = 0;
-				}
-				packed_sizes[i] = Math.min(tmp, 6);
-			}
-			if (bits_used > total_bits) {
-				var i = 0;
-				var bit_count = 0;
-				for (; bit_count < total_bits; ++i) {
-					bit_count += packed_sizes[i];
-				}
-				bit_count -= packed_sizes[i - 1];
-				packed_sizes[i - 1] = total_bits - bit_count;
-				bits_used = total_bits;
-				for (; i < len; ++i) {
-					packed_sizes[i] = 0;
-				}
-			}
-			return (total_bits - bits_used) | 0;
-		}
-		const HarXfmHelper = function(data, data_off, half_len) {
-			var len = half_len << 1;
-			var j = 1;
-			for (var i = 1; i < len; i += 2) {
-				if (i < j) {
-					var tmp1 = data[data_off + i];
-					data[data_off + i] = data[data_off + j];
-					data[data_off + j] = tmp1;
-					var tmp2 = data[data_off + i - 1];
-					data[data_off + i - 1] = data[data_off + j - 1];
-					data[data_off + j - 1] = tmp2;
-				}
-				var x = half_len;
-				while (x > 1 && x < j) {
-					j -= x;
-					x >>= 1;
-				}
-				j += x;
+			} else {
+				if (tag[0] == 5) streamBlock = tag[1];
 			}
 		}
-		const HarXfm = function(data, data_off, half_len_log2) {
-			var half_len = 1 << half_len_log2;
-			HarXfmHelper(data, data_off, half_len);
-			var j = 0;
-			for (var i = (half_len >> 1); i > 0; --i, j += 4) {
-				var j0 = data[data_off + j];
-				var j1 = data[data_off + j + 1];
-				var j2 = data[data_off + j + 2];
-				var j3 = data[data_off + j + 3];
-				data[data_off + j] = j0 + j2;
-				data[data_off + j + 1] = j1 + j3;
-				data[data_off + j + 2] = j0 - j2;
-				data[data_off + j + 3] = j1 - j3;
-			}
-			j = 0;
-			for (var i = (half_len >> 2); i > 0; --i, j += 8) {
-				var j0 = data[data_off + j];
-				var j1 = data[data_off + j + 1];
-				var j2 = data[data_off + j + 2];
-				var j3 = data[data_off + j + 3];
-				var j4 = data[data_off + j + 4];
-				var j5 = data[data_off + j + 5];
-				var j6 = data[data_off + j + 6];
-				var j7 = data[data_off + j + 7];
-				data[data_off + j] = j0 + j4;
-				data[data_off + j + 1] = j1 + j5;
-				data[data_off + j + 2] = j2 + j7;
-				data[data_off + j + 3] = j3 - j6;
-				data[data_off + j + 4] = j0 - j4;
-				data[data_off + j + 5] = j1 - j5;
-				data[data_off + j + 6] = j2 - j7;
-				data[data_off + j + 7] = j3 + j6;
-			}
-			var i = 0;
-			var x = (half_len >> 3);
-			var y = 64;
-			var z = 4;
-			for (var idx1 = half_len_log2 - 2; idx1 > 0; --idx1, z <<= 1, y >>= 1, x >>= 1) {
-				j = 0;
-				for (var idx2 = x; idx2 != 0; --idx2, j += z << 1) {
-					for (var idx3 = z >> 1; idx3 > 0; --idx3, j += 2, i += y) {
-						var k = j + (z << 1);
-						var j0 = data[data_off + j];
-						var j1 = data[data_off + j + 1];
-						var k0 = data[data_off + k];
-						var k1 = data[data_off + k + 1];
-						data[data_off + k] = (j0 - (k0 * table10[NELLY_BUF_LEN - i] + k1 * table10[i]));
-						data[data_off + j] = (j0 + (k0 * table10[NELLY_BUF_LEN - i] + k1 * table10[i]));
-						data[data_off + k + 1] = (j1 + (k0 * table10[i] - k1 * table10[NELLY_BUF_LEN - i]));
-						data[data_off + j + 1] = (j1 - (k0 * table10[i] - k1 * table10[NELLY_BUF_LEN - i]));
-					}
-					for (var idx4 = z >> 1; idx4 > 0; --idx4, j += 2, i -= y) {
-						var k = j + (z << 1);
-						var j0 = data[data_off + j];
-						var j1 = data[data_off + j + 1];
-						var k0 = data[data_off + k];
-						var k1 = data[data_off + k + 1];
-						data[data_off + k] = (j0 + (k0 * table10[NELLY_BUF_LEN - i] - k1 * table10[i]));
-						data[data_off + j] = (j0 - (k0 * table10[NELLY_BUF_LEN - i] - k1 * table10[i]));
-						data[data_off + k + 1] = (j1 + (k1 * table10[NELLY_BUF_LEN - i] + k0 * table10[i]));
-						data[data_off + j + 1] = (j1 - (k1 * table10[NELLY_BUF_LEN - i] + k0 * table10[i]));
-					}
-				}
-			}
-		}
-		const auxceps = function(_in, in_off, len_log2, out, out_off) {
-			var len = 1 << len_log2;
-			var half_len_m1 = (len >> 1) - 1;
-			var quarter_len = len >> 2;
-			for (var i = 0; i < quarter_len; ++i) {
-				var i2 = i << 1;
-				var j = len - 1 - i2;
-				var k = j - 1;
-				var in_i2 = _in[in_off + i2];
-				var in_i2_1 = _in[in_off + i2 + 1];
-				var in_j = _in[in_off + j];
-				var in_k = _in[in_off + k];
-				out[out_off + i2] = (table4[i] * in_i2 - table6[i] * in_j);
-				out[out_off + i2 + 1] = (in_j * table4[i] + in_i2 * table6[i]);
-				out[out_off + k] = (table4[half_len_m1 - i] * in_k - table6[half_len_m1 - i] * in_i2_1);
-				out[out_off + j] = (in_i2_1 * table4[half_len_m1 - i] + in_k * table6[half_len_m1 - i]);
-			}
-			HarXfm(out, out_off, len_log2 - 1);
-			var last_out = out[out_off + len - 1];
-			var pre_last_out = out[out_off + len - 2];
-			out[out_off] = table5[0] * out[out_off];
-			out[out_off + len - 1] = out[out_off + 1] * -table5[0];
-			out[out_off + len - 2] = table5[half_len_m1] * out[out_off + len - 2] + table5[1] * last_out;
-			out[out_off + 1] = pre_last_out * table5[1] - last_out * table5[half_len_m1];
-			var i_out = len - 3;
-			var i_tbl = half_len_m1;
-			var j = 3;
-			for (var i = 1; i < quarter_len; ++i, --i_tbl, i_out -= 2, j += 2) {
-				var old_out_a = out[out_off + i_out];
-				var old_out_b = out[out_off + i_out - 1];
-				var old_out_c = out[out_off + j];
-				var old_out_d = out[out_off + j - 1];
-				out[out_off + j - 1] = (table5[i_tbl] * old_out_c + table5[(j - 1) >> 1] * old_out_d);
-				out[out_off + j] = (old_out_b * table5[(j + 1) >> 1] - old_out_a * table5[i_tbl - 1]);
-				out[out_off + i_out] = (old_out_d * table5[i_tbl] - old_out_c * table5[(j - 1) >> 1]);
-				out[out_off + i_out - 1] = (table5[(j + 1) >> 1] * old_out_a + table5[i_tbl - 1] * old_out_b);
-			}
-		}
-		const iTransfm = function(state, _in, len_log2, out, out_off) {
-			var len = 1 << len_log2;
-			var quarter_len = len >> 2;
-			var y = len - 1;
-			var x = len >> 1;
-			var j = x - 1;
-			var i = 0;
-			auxceps(_in, 0, len_log2, out, out_off);
-			for (; i < quarter_len; ++i, --j, ++x, --y) {
-				var state_i = state[i];
-				var state_j = state[j];
-				var out_x = out[out_off + x];
-				var out_y = out[out_off + y];
-				state[i] = -out[out_off + j];
-				state[j] = -out[out_off + i];
-				out[out_off + i] = (state_i * table7[y] + out_x * table7[i]);
-				out[out_off + j] = (state_j * table7[x] + out_y * table7[j]);
-				out[out_off + x] = (table7[x] * -out_y + table7[j] * state_j);
-				out[out_off + y] = (table7[y] * -out_x + table7[i] * state_i);
-			}
-		}
-		const decodeBlock = function(state, _in, out) {
-			var unpacked_input = new Uint8Array(NELLY_FILL_LEN);
-			var var_808 = new Float32Array(NELLY_BUF_LEN);
-			var var_608 = new Float32Array(NELLY_FILL_LEN);
-			var var_418 = new Float32Array(NELLY_FILL_LEN);
-			var bs = new Bits();
-			var unpacked_byte = bs.pop(gainBit[0], _in);
-			unpacked_input[0] = unpacked_byte;
-			var_808[0] = table1[unpacked_byte];
-			for (var i = 1; i < 23; i++) {
-				unpacked_byte = bs.pop(gainBit[i], _in);
-				unpacked_input[i] = unpacked_byte;
-				var_808[i] = var_808[i - 1] + table2[unpacked_byte];
-			}
-			for (var i = 0; i < 23; i++) {
-				var pow = Math.pow(2.0, var_808[i] * (0.5 * 0.0009765625));
-				var bound = bandBound[i];
-				var next_bound = bandBound[i + 1];
-				for (; bound < next_bound; ++bound) {
-					var_418[bound] = var_808[i];
-					var_608[bound] = pow;
-				}
-			}
-			var packed_byte_sizes = new Int32Array(NELLY_FILL_LEN);
-			var leftover = wc(var_418, NELLY_FILL_LEN, NELLY_DETAIL_BITS, packed_byte_sizes);
-			for (var out_off = 0; out_off < NELLY_SAMPLES; out_off += NELLY_BUF_LEN) {
-				for (var i = 0; i < NELLY_FILL_LEN; ++i) {
-					var packed_size = packed_byte_sizes[i];
-					var val = var_608[i];
-					if (packed_size > 0) {
-						var pow2 = 1 << packed_size;
-						unpacked_byte = bs.pop(packed_size, _in);
-						unpacked_input[i] = unpacked_byte;
-						val *= table3[pow2 - 1 + unpacked_byte];
-					} else {
-						var rnd_u32 = Math.random() * 4294967296.0;
-						if (rnd_u32 < (1<<30) + (1<<14)) {
-							val *= -0.707099974;
-						} else {
-							val *= 0.707099974;
-						}
-					}
-					var_808[i] = val;
-				}
-				for (var i = NELLY_FILL_LEN; i < NELLY_BUF_LEN; ++i) {
-					var_808[i] = 0;
-				}
-				for (var i = leftover; i > 0; i -= 8) {
-					if (i > 8) {
-						bs.pop(8, _in);
-					} else {
-						bs.pop(i, _in);
-						break;
-					}
-				}
-				iTransfm(state, var_808, 7, out, out_off);
-			}
-		}
-		return function(out, data) {
-			var z = 0, x = new Float32Array(NELLY_BUF_LEN), r = 0, c = new Float32Array(NELLY_SAMPLES);
-			while (r < data.byteLength) {
-				decodeBlock(x, new Uint8Array(data.slice(r, r + NELLY_BLOCK_LEN)), c);
-				for (let i = 0; i < NELLY_SAMPLES; i++) out[z] = (c[i] / 32768), z++;
-				r += NELLY_BLOCK_LEN;
-			}
-		}
-	}());
-	const {loadDefineSound, loadStreamSoundTimeline} = (function() {
-		const INDEX_TABLE = [[-1, 2], [-1, -1, 2, 4], [-1, -1, -1, -1, 2, 4, 6, 8], [-1, -1, -1, -1, -1, -1, -1, -1, 1, 2, 4, 6, 8, 10, 13, 16]];
-		const STEP_TABLE = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767,];
-		const SAMPLE_DELTA_CALCULATOR = [
-			function(a, b) {
-				let c = a >> 1;
-				if (b & 1) c += a;
-				return c;
-			},
-			function(a, b) {
-				let c = a >> 2;
-				if (b & 1) c += a >> 1;
-				if (b & 2) c += a;
-				return c;
-			},
-			function(a, b) {
-				let c = a >> 3;
-				if (b & 1) c += a >> 2;
-				if (b & 2) c += a >> 1;
-				if (b & 4) c += a;
-				return c;
-			},
-			function(a, b) {
-				let c = a >> 4;
-				if (b & 1) c += a >> 3;
-				if (b & 2) c += a >> 2;
-				if (b & 4) c += a >> 1;
-				if (b & 8) c += a;
-				return c;
-			}
-		];
-		function convertToMp3A(audioContext, buffer, sampleCount, sampleRate, seekSample, channels) {
-			var b = audioContext.createBuffer(channels, sampleCount, sampleRate);
-			var q = buffer.getChannelData(0);
-			var w = ((channels == 2) ? buffer.getChannelData(1) : null);
-			var a = b.getChannelData(0);
-			var s = ((channels == 2) ? b.getChannelData(1) : null);
-			for (let i = 0; i < sampleCount; i++) {
-				let r = (((i + seekSample) / sampleRate) * buffer.sampleRate) | 0;
-				a[i] = q[r] || 0;
-				if (channels == 2) s[i] = w[r] || 0;
-			}
-			return b;
-		}
-		function decodePCM(data, buffer, channels, is16Bit, pos_buffer) {
-			var byteStream = new ByteStream(data);
-			var _pos_buffer = pos_buffer || 0;
-			var i = _pos_buffer;
-			var a = buffer.getChannelData(0);
-			var s = ((channels == 2) ? buffer.getChannelData(1) : null);
-			while(byteStream.getBytesAvailable() >= 2) {
-				if (is16Bit) {
-					a[i] = (byteStream.readInt16() / 32768);
-					if (channels == 2) s[i] = (byteStream.readInt16() / 32768);
-				} else {
-					a[i] = ((byteStream.readUint8() - 128) / 128);
-					if (channels == 2) s[i] = ((byteStream.readUint8() - 128) / 128);
-				}
-				i++;
-			}
-			return i;
-		}
-		function decodeADPCM(data, buffer, channels, pos_buffer) {
-			var byteStream = new ByteStream(data);
-			let bits_per_sample = (byteStream.readUB(2) + 2);
-			var q = pos_buffer || 0;
-			let a = buffer.getChannelData(0);
-			let s = ((channels == 2) ? buffer.getChannelData(1) : null);
-			var d = SAMPLE_DELTA_CALCULATOR[bits_per_sample - 2];
-			var _ = [{}, {}];
-			let h = (1 << (bits_per_sample - 1));
-			var j = 0;
-			while(byteStream.getBytesAvailable() > 0) {
-				try {
-					if (j == 0) {
-						for (let i = 0; i < channels; i++) {
-							let w = _[i];
-							w.sample = byteStream.readSB(16);
-							w.stepIndex = byteStream.readUB(6);
-						}
-					}
-					j = (j + 1) % 4095;
-					for (let i2 = 0; i2 < channels; i2++) {
-						let w = _[i2];
-						let r = STEP_TABLE[w.stepIndex];
-						let p = byteStream.readUB(bits_per_sample);
-						let g = (p & (h - 1));
-						let delta = d(r, g);
-						w.sample = Math.max(-32768, Math.min(32767, ((p & h) ? (w.sample - delta) : (w.sample + delta))));
-						w.stepIndex = Math.max(0, Math.min(88, w.stepIndex + INDEX_TABLE[bits_per_sample - 2][g]));
-					}
-					a[q] = _[0].sample / 0x8000;
-					if (channels == 2) s[q] = _[1].sample / 0x8000;
-					q++;
-				} catch(e) {
-					break;
-				}
-			}
-			return q;
-		}
-		function decodeMP3(audioContext, data, sampleCount, sampleRate, channel, callback) {
-			var byteStream = new ByteStream(data);
-			var seekSample = byteStream.readInt16();
-			var mp3data = data.slice(2);
-			audioContext.decodeAudioData(mp3data, function(f) {
-				callback(convertToMp3A(audioContext, f, sampleCount, sampleRate, seekSample, channel));
+		if (blocks.length) {
+			streamSounds.push({
+				startFrame,
+				blocks
 			});
+			blocks = [];
 		}
-		function decodeMP3SoundStream(audioContext, blocks, streamInfo, callback) {
-			var streamStream = streamInfo.stream;
-			var numSamples = blocks.length * streamInfo.samplePerBlock; // TODO
-			var channels = (streamStream.isStereo ? 2 : 1);
-			var gg1 = 0;
-			for (var i = 0; i < blocks.length; i++) {
-				var b1 = blocks[i];
-				gg1 += (b1.byteLength - 4);
-			}
-			var gg = new Uint8Array(gg1);
-			var idd = 0;
-			for (var i = 0; i < blocks.length; i++) {
-				var bb = blocks[i];
-				var ui8view = new Uint8Array(bb);
-				for (var i2 = 4; i2 < bb.byteLength; i2++) {
-					gg[idd++] = ui8view[i2];
-				}
-			}
-			var compressed = gg.buffer;
-			if (compressed.byteLength) {
-				audioContext.decodeAudioData(compressed, function(f) {
-					callback(convertToMp3A(audioContext, f, numSamples, streamStream.sampleRate, streamInfo.latencySeek || 0, channels));
+		var buffers = [];
+		var s = 0;
+		if (streamSounds.length) {
+			for (let l = 0; l < streamSounds.length; l++) {
+				var currentStreamSound = streamSounds[l];
+				var buffer = loadStreamSound(audioContext, currentStreamSound.blocks, streamInfo);
+				buffers.push({
+					blocks: currentStreamSound.blocks,
+					buffer: buffer,
+					startFrame: s
 				});
-			} else {
-				callback(audioContext.createBuffer(channels, numSamples, streamStream.sampleRate));
-			}
+				s += currentStreamSound.blocks.length;
+			}	
 		}
-		function decodeNellymoser(data, buffer) {
-			JSNellymoserDecoder(buffer.getChannelData(0), data);
-		}
-		function loadDefineSound(audioContext, sound, callback) {
-			var format = sound.format;
-			var data = sound.data;
-			var channels = (format.isStereo ? 2 : 1);
-			var is16Bit = format.is16Bit;
-			if (format.compression == "MP3") {
-				decodeMP3(audioContext, data, sound.numSamples, format.sampleRate, channels, callback);
-			} else {
-				var buffer = audioContext.createBuffer(channels, sound.numSamples, format.sampleRate);
-				switch(format.compression) {
-					case "ADPCM":
-						decodeADPCM(data, buffer, channels, 0);
-						break;
-					case "uncompressed":
-					case "uncompressedUnknownEndian":
-						decodePCM(data, buffer, channels, is16Bit);
-						break;
-					case "nellymoser":
-						decodeNellymoser(data, buffer);
-						break;
-					default:
-						console.log("TODO: " + format.compression);
-				}
-				callback(buffer);
-			}
-		}
-		function loadStreamSound(audioContext, blocks, streamInfo, callback) {
-			var streamStream = streamInfo.stream;
-			var numSamples = blocks.length * streamInfo.samplePerBlock; // TODO
-			var channels = (streamStream.isStereo ? 2 : 1);
-			var is16Bit = streamStream.is16Bit;
-			var compression = streamStream.compression;
-			if (compression == "MP3") {
-				decodeMP3SoundStream(audioContext, blocks, streamInfo, callback);
-			} else {
-				var buffer = audioContext.createBuffer(channels, numSamples, streamStream.sampleRate);
-				if (compression == "nellymoser") {
-					var gg1 = 0;
-					for (var i = 0; i < blocks.length; i++) {
-						var b1 = blocks[i];
-						gg1 += (b1.byteLength - 0);
-					}
-					var gg = new Uint8Array(gg1);
-					var idd = 0;
-					for (var i = 0; i < blocks.length; i++) {
-						var bb = blocks[i];
-						var ui8view = new Uint8Array(bb);
-						for (var i2 = 0; i2 < bb.byteLength; i2++) {
-							gg[idd++] = ui8view[i2];
-						}
-					}
-					var compressed = gg.buffer;
-					decodeNellymoser(compressed, buffer);
-				} else {
-					var oPos = 0;
-					for (let i = 0; i < blocks.length; i++) {
-						const block = blocks[i];
-						var posBuffer = 0;
-						switch(compression) {
-							case "ADPCM":
-								posBuffer = decodeADPCM(block, buffer, channels, oPos);
-								break;
-							case "uncompressed":
-							case "uncompressedUnknownEndian":
-								posBuffer = decodePCM(block, buffer, channels, is16Bit, oPos);
-								break;
-							default:
-								console.log("TODO: " + compression);
-						}
-						oPos = posBuffer;
-					}
-				}
-				callback(buffer);
-			}
-		}
-		function loadStreamSoundTimeline(audioContext, tags, streamInfo, callback) {
-			var streamSounds = [];
-			var blocks = [];
-			var frameCount = 0;
-			var startFrame = 0;
-			var streamBlock = null;
-			var tagId = 0;
-			while (tagId < tags.length) {
-				var tag = tags[tagId++];
-				if (tag == "next") {
-					frameCount++;
-					if (streamBlock) {
-						if (!blocks.length) startFrame = frameCount;
-						blocks.push(streamBlock);
-						streamBlock = null;
-					} else {
-						if (blocks.length) {
-							streamSounds.push({
-								startFrame,
-								blocks
-							});
-							blocks = [];
-						}
-					}
-				} else {
-					if (tag[0] == 5) streamBlock = tag[1];
-				}
-			}
-			if (blocks.length) {
-				streamSounds.push({
-					startFrame,
-					blocks
-				});
-				blocks = [];
-			}
-			var buffers = [];
-			var loadSoundId = 0;
-			var startLoad = function() {
-				var currentStreamSound = streamSounds[loadSoundId];
-				loadStreamSound(audioContext, currentStreamSound.blocks, streamInfo, function(buffer) {
-					buffers.push({
-						blocks: currentStreamSound.blocks,
-						buffer: buffer,
-						startFrame: currentStreamSound.startFrame
-					});
-					loadSoundId++;
-					if (loadSoundId >= streamSounds.length) {
-						callback(buffers);
-					} else {
-						startLoad();
-					}
-				});
-			}
-			if (streamSounds.length) {
-				startLoad();
-			} else {
-				callback(streamSounds);
-			}
-		}
-		return {loadDefineSound, loadStreamSoundTimeline};
-	}());
+		return buffers;
+	}
 	const TransformStack = function() {
 		this.stackMt = [[1, 0, 0, 1, 0, 0]];
 		this.stackCT = [[1, 1, 1, 1, 0, 0, 0, 0]];
 		this.pushTotal = 1;
 	}
 	TransformStack.prototype.stackPush = function(matrix, colorTransform) {
-		this.stackMt.push(multiplicationMatrix(this.getMatrix(), matrix));
-		this.stackCT.push(multiplicationColor(this.getColorTransform(), colorTransform));
+		this.stackMt.push(utils.multiplicationMatrix(this.getMatrix(), matrix));
+		this.stackCT.push(utils.multiplicationColor(this.getColorTransform(), colorTransform));
 		if (this.stackCT.length > this.pushTotal) {
 			this.pushTotal = this.stackCT.length;
 		}
@@ -6381,7 +5612,6 @@ var PinkFie = (function() {
 				const _block = sg.blocks[j];
 				if (_block == block) {
 					return {
-						startFrame: sg.startFrame,
 						buffer: sg.buffer,
 						blocks: sg.blocks,
 						timeFrame: j
@@ -6409,6 +5639,27 @@ var PinkFie = (function() {
 	AudioBackend.prototype.pause = function() {
 		this.audioContext.suspend();
 	}
+	AudioBackend.prototype.getAudioBufferFloat = function(bufferLeft, bufferRight, sampleRate) {
+		bufferLeft.fill(0);
+		bufferRight.fill(0);
+		var oe = (Math.floor((this.audioContext.currentTime * sampleRate) / 2048) * 2048);
+		var ea = oe / sampleRate;
+		for (let i = 0; i < this.playingAudios.length; i++) {
+			const playingAudio = this.playingAudios[i];
+			if (playingAudio.ended) break;
+			var buf = playingAudio.buffer;
+			var _l = buf.getChannelData(0);
+			var _r = buf.numberOfChannels == 2 ? buf.getChannelData(0) : _l;
+			var hs = this.getAudioNodeVolume(playingAudio);
+			for (let i2 = 0; i2 < 2048; i2++) {
+				var st = (((playingAudio.timeFrame || 0) + ea) - playingAudio.startTime) * buf.sampleRate;
+				var _i = (st + (i2 * (buf.sampleRate / sampleRate))) | 0;
+				bufferLeft[i2] += ((_l[_i] || 0) * hs[0]);
+				bufferRight[i2] += ((_r[_i] || 0) * hs[1]);
+			}
+		}
+		return oe;
+	}
 	AudioBackend.prototype._createPan = function(input) {
 		var inputNode = this.audioContext.createGain();
 		var leftGain = this.audioContext.createGain();
@@ -6433,9 +5684,7 @@ var PinkFie = (function() {
 		var newList = [];
 		for (let i = 0; i < this.playingAudios.length; i++) {
 			const playingAudio = this.playingAudios[i];
-			if (!playingAudio.ended) {
-				newList.push(playingAudio);
-			}
+			if (!playingAudio.ended) newList.push(playingAudio);
 		}
 		this.playingAudios = newList;
 	}
@@ -6484,6 +5733,19 @@ var PinkFie = (function() {
 		} else {
 		}
 	}
+	AudioBackend.prototype.getAudioNodeVolume = function(n) {
+		var l = 0;
+		var r = 0;
+		var nodeLR = n.nodeLR;
+		if (nodeLR) {
+			l = nodeLR.rightGain.gain.value;
+			r = nodeLR.leftGain.gain.value;
+		} else {
+			l = 1;
+			r = 1;
+		}
+		return [l, r];
+	}
 	AudioBackend.prototype.streamSoundIsEnded = function(a) {
 		return (a.timeFrame + (this.audioContext.currentTime - a.startTime)) >= a.duration;
 	}
@@ -6506,9 +5768,7 @@ var PinkFie = (function() {
 		for (let i = 0; i < this.playingAudios.length; i++) {
 			const playingAudio = this.playingAudios[i];
 			if (playingAudio.type == "start_sound") {
-				if (handle === playingAudio.sound) {
-					return !playingAudio.ended;
-				}
+				if (handle === playingAudio.sound) return !playingAudio.ended;
 			}
 		}
 		return false;
@@ -6517,51 +5777,42 @@ var PinkFie = (function() {
 		for (let i = 0; i < this.playingAudios.length; i++) {
 			const playingAudio = this.playingAudios[i];
 			if (playingAudio.type == "start_sound") {
-				if (handle === playingAudio.sound) {
-					this.stopSound(playingAudio);
-				}
+				if (handle === playingAudio.sound) this.stopSound(playingAudio);
 			}
 		}
 	}
 	AudioBackend.prototype.stopSound = function(soundPlaying) {
-		if (soundPlaying.source) {
-			soundPlaying.source.disconnect();
-		}
+		if (soundPlaying.source) soundPlaying.source.disconnect();
 		soundPlaying.source = null;
 		soundPlaying.ended = true;
 	}
 	AudioBackend.prototype.playSound = function(soundPlaying) {
-		if (soundPlaying.source) {
-			soundPlaying.source.disconnect();
-		}
+		if (soundPlaying.source) soundPlaying.source.disconnect();
 		var source = this.audioContext.createBufferSource();
 		source.buffer = soundPlaying.buffer;
-		if (soundPlaying.nodeLR) {
-			source.connect(soundPlaying.nodeLR.inputNode);
-		} else {
-			source.connect(this.node);
-		}
+		if (soundPlaying.nodeLR) source.connect(soundPlaying.nodeLR.inputNode);
+		else source.connect(this.node);
 		source.start(this.audioContext.currentTime, soundPlaying.soundStart);
 		soundPlaying.source = source;
 	}
 	AudioBackend.prototype.startSound = function(sound, soundInfo, mc) {
-		var soundPlaying = {};
-		soundPlaying.sound = sound;
-		soundPlaying.type = "start_sound";
-		soundPlaying.ended = false;
-		soundPlaying.startTime = this.audioContext.currentTime;
-		soundPlaying.startTimeOriginal = this.audioContext.currentTime;
-		soundPlaying.buffer = sound.getBuffer();
+		var sp = {};
+		sp.sound = sound;
+		sp.type = "start_sound";
+		sp.ended = false;
+		sp.startTime = this.audioContext.currentTime;
+		sp.startTimeOriginal = this.audioContext.currentTime;
+		sp.buffer = sound.getBuffer();
 		var nodeLR = this._createPan(this.node);
-		soundPlaying.nodeLR = nodeLR;
-		soundPlaying.soundStart = 0;
-		soundPlaying.soundEnd = soundPlaying.buffer.duration;
-		soundPlaying.loopCount = 1;
-		if ("numLoops" in soundInfo) soundPlaying.loopCount = soundInfo.numLoops;
-		if ("inSample" in soundInfo) soundPlaying.soundStart = (soundInfo.inSample / 44100);
-		if ("outSample" in soundInfo) soundPlaying.soundEnd = (soundInfo.outSample / 44100);
+		sp.nodeLR = nodeLR;
+		sp.soundStart = 0;
+		sp.soundEnd = sp.buffer.duration;
+		sp.loopCount = 1;
+		if ("numLoops" in soundInfo) sp.loopCount = soundInfo.numLoops;
+		if ("inSample" in soundInfo) sp.soundStart = (soundInfo.inSample / 44100);
+		if ("outSample" in soundInfo) sp.soundEnd = (soundInfo.outSample / 44100);
 		if ("envelope" in soundInfo) {
-			soundPlaying.envelopeId = 0;
+			sp.envelopeId = 0;
 			var envelopes = soundInfo.envelope;
 			var rs = envelopes[0];
 			if (rs) {
@@ -6570,14 +5821,16 @@ var PinkFie = (function() {
 				nodeLR.rightGain.gain.value = Math.max(Math.min(rightVal, 1), 0);
 				nodeLR.leftGain.gain.value = Math.max(Math.min(leftVal, 1), 0);
 			}
-			soundPlaying.envelopes = envelopes;
+			sp.envelopes = envelopes;
 		}
-		this.playSound(soundPlaying);
-		this.playingAudios.push(soundPlaying);
+		this.playSound(sp);
+		this.playingAudios.push(sp);
 	}
 	AudioBackend.prototype.startStream = function(audioStreamHandle, clip, clipFrame, block, streamInfo) {
 		var result = audioStreamHandle.getBlock(block);
 		if (!result) return;
+		var rate = +(1000 / this.frameRate).toFixed(1);
+		var durations = result.buffer.duration;
 		var audioStream = clip.audioStream;
 		if (audioStream) {
 			if (!audioStream.ended) {
@@ -6585,27 +5838,27 @@ var PinkFie = (function() {
 					audioStream.blocksInfo = result;
 					audioStream.blocks = result.blocks;
 					audioStream.buffer = result.buffer;
-					audioStream.duration = result.buffer.duration;
+					audioStream.timeFrame = (result.timeFrame * rate) / 1000;
+					audioStream.duration = durations;
 					audioStream.startTime = this.audioContext.currentTime;
-					audioStream.timeFrame = result.timeFrame / this.frameRate;
 					this.playStreamSound(audioStream);
-				}    
+				}
 			}
 			return audioStream;
 		}
-		var soundPlaying = {};
-		soundPlaying.sound = audioStreamHandle;
-		soundPlaying.type = "stream_sound";
-		soundPlaying.ended = false;
-		soundPlaying.blocksInfo = result;
-		soundPlaying.blocks = result.blocks;
-		soundPlaying.buffer = result.buffer;
-		soundPlaying.duration = result.buffer.duration;
-		soundPlaying.startTime = this.audioContext.currentTime;
-		soundPlaying.timeFrame = result.timeFrame / this.frameRate;
-		this.playStreamSound(soundPlaying);
-		this.playingAudios.push(soundPlaying);
-		return soundPlaying;
+		var sp = {};
+		sp.sound = audioStreamHandle;
+		sp.type = "stream_sound";
+		sp.ended = false;
+		sp.blocksInfo = result;
+		sp.blocks = result.blocks;
+		sp.buffer = result.buffer;
+		sp.timeFrame = (result.timeFrame * rate) / 1000;
+		sp.duration = durations;
+		sp.startTime = this.audioContext.currentTime;
+		this.playStreamSound(sp);
+		this.playingAudios.push(sp);
+		return sp;
 	}
 	AudioBackend.prototype.playStreamSound = function(soundPlaying) {
 		if (soundPlaying.source) soundPlaying.source.disconnect();
@@ -6626,35 +5879,56 @@ var PinkFie = (function() {
 	AudioBackend.prototype.setVolume = function(value) {
 		this.node.gain.value = value;
 	}
-	AudioBackend.prototype.loadSound = function(sound, callback) {
+	AudioBackend.prototype.registerSound = function(sound) {
 		this.compressSoundMap[sound.format.compression] = true;
-		loadDefineSound(this.audioContext, sound, function(buffer) {
-			callback(new Sound(buffer, sound.format));
-		});
+		var buffer = loadDefineSound(this.audioContext, sound);
+		return new Sound(buffer, sound.format);
 	}
-	AudioBackend.prototype.loadStreamSound = function(streamInfo, tags, callback) {
+	AudioBackend.prototype.loadStreamSound = function(streamInfo, tags) {
 		if (streamInfo.stream.compression != 'uncompressedUnknownEndian') {
 			this.compressSoundMap[streamInfo.stream.compression] = true;
 		}
-		loadStreamSoundTimeline(this.audioContext, tags, streamInfo, function(buffer) {
-			callback(new SoundStream(buffer, streamInfo))
-		})
+		var buffer = loadStreamSoundTimeline(this.audioContext, tags, streamInfo);
+		return new SoundStream(buffer, streamInfo);
+	}
+	function linearGradientXY(m) {
+		var x0 = -16384 * m[0] - 16384 * m[2] + m[4];
+		var x1 =  16384 * m[0] - 16384 * m[2] + m[4];
+		var x2 = -16384 * m[0] + 16384 * m[2] + m[4];
+		var y0 = -16384 * m[1] - 16384 * m[3] + m[5];
+		var y1 =  16384 * m[1] - 16384 * m[3] + m[5];
+		var y2 = -16384 * m[1] + 16384 * m[3] + m[5];
+		var vx2 = x2 - x0;
+		var vy2 = y2 - y0;
+		var r1 = Math.sqrt(vx2 * vx2 + vy2 * vy2);
+		vx2 /= r1;
+		vy2 /= r1;
+		var r2 = (x1 - x0) * vx2 + (y1 - y0) * vy2;
+		return [x0 + r2 * vx2, y0 + r2 * vy2, x1, y1];
+	}
+	function checkImageColorTransform(colorTransform) {
+		return (colorTransform[0] !== 1) || (colorTransform[1] !== 1) || (colorTransform[2] !== 1) || colorTransform[4] || colorTransform[5] || colorTransform[6];
 	}
 	const RenderCanvas2dTexture = function(renderer) {
 		this.renderer = renderer;
 		this.width = 0;
 		this.height = 0;
 		this.texture = null;
-		this.tmpCanvas = document.createElement("canvas");
-		this.tmpCtx = this.tmpCanvas.getContext("2d");
+		this.isDrawing = false;
+		this.isColorTransformCache = false;
 		this.c = [NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN];
 	}
+	RenderCanvas2dTexture.prototype._initColorTransformCache = function() {
+		this.tmpCanvas = document.createElement("canvas");
+		this.tmpCtx = this.tmpCanvas.getContext("2d");
+		this.isColorTransformCache = true;
+	}
 	RenderCanvas2dTexture.prototype.getTexture = function(color) {
-		if (checkImageColorTransform(color)) {
+		if (color && checkImageColorTransform(color)) {
+			if (!this.isColorTransformCache) this._initColorTransformCache();
 			if (this.c[0] != color[0] || this.c[1] != color[1] || this.c[2] != color[2] || this.c[3] != color[3] || this.c[4] != color[4] || this.c[5] != color[5] || this.c[6] != color[6] || this.c[7] != color[7]) {
 				var width = this.texture.width;
 				var height = this.texture.height;
-				console.log(width, height);
 				this.tmpCanvas.width = width;
 				this.tmpCanvas.height = height;
 				this.tmpCtx.drawImage(this.texture, 0, 0);
@@ -6706,6 +5980,9 @@ var PinkFie = (function() {
 		this.height = image.height;
 		ctx.drawImage(image, 0, 0);
 		this.texture = canvas;
+		this.isDrawing = true;
+		this.c = [NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN];
+		this.isColorTransformCache = false;
 	}
 	const RenderCanvas2dShapeInterval = function(renderer, shapeIntervalData) {
 		this.renderer = renderer;
@@ -6749,10 +6026,8 @@ var PinkFie = (function() {
 		this.canvas.width = this.width;
 		this.canvas.height = this.height;
 	}
-	RenderCanvas2d.prototype.imageToInterval = function(image) {
-		var tex = new RenderCanvas2dTexture(this);
-		tex.setImage(image);
-		return tex;
+	RenderCanvas2d.prototype.createImageInterval = function() {
+		return new RenderCanvas2dTexture(this);
 	}
 	RenderCanvas2d.prototype.isAllowImageColorTransform = function() {
 		return (this.quality == "high");
@@ -6789,8 +6064,7 @@ var PinkFie = (function() {
 		// 2 bitmap
 		var result = [];
 		for (let i = 0; i < shapeCache.length; i++) {
-			const si = shapeCache[i];
-			result.push(this.shapeToCanvas(si, library));
+			result.push(this.shapeToCanvas(shapeCache[i], library));
 		}
 		return new RenderCanvas2dShapeInterval(this, result);
 	}
@@ -6798,9 +6072,7 @@ var PinkFie = (function() {
 		var isStroke = (shape.type == 1);
 		var width = shape.width || 0;
 		var fillInfo = shape.fill;
-		if (!fillInfo) {
-			return;
-		}
+		if (!fillInfo) return;
 		var cmdResult = this.buildCmd2dPath(shape.path2d);
 		if (fillInfo.type == 0) {
 			return {
@@ -6817,7 +6089,7 @@ var PinkFie = (function() {
 				isRadial: fillInfo.isRadial,
 				focal: fillInfo.focal,
 				matrix: fillInfo.matrix.slice(0),
-				records: cloneObject(fillInfo.records),
+				records: utils.cloneObject(fillInfo.records),
 				isStroke,
 				width
 			};
@@ -6862,17 +6134,19 @@ var PinkFie = (function() {
 		}
 	}
 	RenderCanvas2d.prototype.renderBitmap = function(texture, matrix, colorTransform, isSmoothed) {
+		var isA = this.isAllowImageColorTransform();
 		this.setTransform(...matrix);
 		this.setColorTransform(...colorTransform);
 		this.ctx.imageSmoothingEnabled = (isSmoothed || false);
-		if (texture) {
+		if (texture && texture.isDrawing) {
 			this.ctx.setTransform(...this.matrixTransform);
-			if (!checkImageColorTransform(colorTransform)) this.ctx.globalAlpha = Math.max(0, Math.min((255 * colorTransform[3]) + colorTransform[7], 255)) / 255;
-			this.ctx.drawImage(texture.getTexture(colorTransform), 0, 0);
+			if ((!isA) || (!checkImageColorTransform(colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * colorTransform[3]) + colorTransform[7], 255)) / 255;
+			this.ctx.drawImage(texture.getTexture(isA ? colorTransform : null), 0, 0);
 			this.ctx.globalAlpha = 1;
 		}
 	}
 	RenderCanvas2d.prototype.renderShape = function(shapeInterval, matrix, colorTransform) {
+		var isA = this.isAllowImageColorTransform();
 		this.setTransform(...matrix);
 		this.setColorTransform(...colorTransform);
 		if (!shapeInterval) return;
@@ -6894,7 +6168,7 @@ var PinkFie = (function() {
 					this.ctx.setTransform(...this.matrixTransform);
 					this.ctx.beginPath();
 					cmd(this.ctx);
-					var css = 'rgba(' + generateColorTransform(color, this.colorTransform).join(',') + ')';
+					var css = 'rgba(' + utils.generateColorTransform(color, this.colorTransform).join(',') + ')';
 					if (isStroke) {
 						this.ctx.lineWidth = width;
 						this.ctx.lineCap = "round";
@@ -6919,7 +6193,7 @@ var PinkFie = (function() {
 					}
 					for (let j = 0; j < si.records.length; j++) {
 						const rc = si.records[j];
-						css.addColorStop(rc[1], 'rgba(' + generateColorTransform(rc[0], this.colorTransform).join(',') + ')');
+						css.addColorStop(rc[1], 'rgba(' + utils.generateColorTransform(rc[0], this.colorTransform).join(',') + ')');
 					}
 					if (isRadial) {
 						this.ctx.save();
@@ -6942,15 +6216,15 @@ var PinkFie = (function() {
 					var bMatrix = si.matrix;
 					var repeat = si.isRepeating ? "repeat" : "no-repeat";
 					var texture = si.texture;
-					if (texture) {
+					if (texture && texture.isDrawing) {
 						this.ctx.setTransform(...this.matrixTransform);
 						this.ctx.beginPath();
 						cmd(this.ctx);
 						this.ctx.save();
 						this.ctx.transform(...bMatrix);
 						this.ctx.imageSmoothingEnabled = (si.isSmoothed || false);
-						var image = texture.getTexture(colorTransform);
-						if (!checkImageColorTransform(colorTransform)) this.ctx.globalAlpha = Math.max(0, Math.min((255 * colorTransform[3]) + colorTransform[7], 255)) / 255;
+						var image = texture.getTexture(isA ? colorTransform : null);
+						if ((!isA) || (!checkImageColorTransform(colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * colorTransform[3]) + colorTransform[7], 255)) / 255;
 						var p = this.ctx.createPattern(image, repeat);
 						this.ctx.fillStyle = p;
 						this.ctx.fill();
@@ -6994,38 +6268,26 @@ var PinkFie = (function() {
 		return this.maskersInProgress > 0;
 	}
 	CommandList.prototype.renderShape = function(shape, transfrom, colorT) {
-		if (this.maskersInProgress <= 1) {
-			this.commandLists.push(["render_shape", shape, transfrom.slice(0), colorT.slice(0)]);
-		}
+		if (this.maskersInProgress <= 1) this.commandLists.push(["render_shape", shape, transfrom.slice(0), colorT.slice(0)]);
 	}
 	CommandList.prototype.renderBitmap = function(bitmap, transfrom, colorT, isSmoothed) {
-		if (this.maskersInProgress <= 1) {
-			this.commandLists.push(["render_bitmap", bitmap, transfrom.slice(0), colorT.slice(0), isSmoothed]);
-		}
+		if (this.maskersInProgress <= 1) this.commandLists.push(["render_bitmap", bitmap, transfrom.slice(0), colorT.slice(0), isSmoothed]);
 	}
 	CommandList.prototype.pushMask = function() {
-		if (this.maskersInProgress == 0) {
-			this.commandLists.push(["push_mask"]);
-		}
+		if (this.maskersInProgress == 0) this.commandLists.push(["push_mask"]);
 		this.maskersInProgress += 1;
 	}
 	CommandList.prototype.activateMask = function() {
 		this.maskersInProgress -= 1;
-		if (this.maskersInProgress == 0) {
-			this.commandLists.push(["activate_mask"]);
-		}
+		if (this.maskersInProgress == 0) this.commandLists.push(["activate_mask"]);
 	}
 	CommandList.prototype.deactivateMask = function() {
-		if (this.maskersInProgress == 0) {
-			this.commandLists.push(["deactivate_mask"]);
-		}
+		if (this.maskersInProgress == 0) this.commandLists.push(["deactivate_mask"]);
 		this.maskersInProgress += 1;
 	}
 	CommandList.prototype.popMask = function() {
 		this.maskersInProgress -= 1;
-		if (this.maskersInProgress == 0) {
-			this.commandLists.push(["pop_mask"]);
-		}
+		if (this.maskersInProgress == 0) this.commandLists.push(["pop_mask"]);
 	}
 	const MovieLibrary = function() {
 		this.characters = new Map();
@@ -7076,9 +6338,7 @@ var PinkFie = (function() {
 			console.log("SWF contains multiple JPEGTables tags");
 			return;
 		}
-		if (jt.byteLength) {
-			this.jpegTables = jt;
-		}
+		if (jt.byteLength) this.jpegTables = jt;
 	}
 	const Library = function() {
 		this.movieLibraries = new Map();
@@ -7110,16 +6370,20 @@ var PinkFie = (function() {
 			this[p] = data[p];
 		}
 	}
+	const ExecutionLimit = function(limit) {
+		this.limit = limit;
+	}
+	ExecutionLimit.prototype.didOpsBreachLimit = function(context, g) {
+		this.limit -= g;
+		return this.limit < 0;
+	}
 	const Player = function() {
 		this.version = 0;
 		this.swf = null;
-
 		this.isPlaying = true;
 		this.needsRender = false;
-
 		this.renderer = null;
 		this.audio = null;
-		
 		this.frameRate = 30;
 		this.frameAccumulator = 0;
 		this.instanceCounter = 0;
@@ -7128,12 +6392,7 @@ var PinkFie = (function() {
 		this.clip = null;
 		this.loaded = false;
 		this.startOffest = 0;
-		this.root = null;
-		this._width = 640;
-		this._height = 400;
-		
 		this.callback = null;
-		this.onprogresstext = null;
 	}
 	Object.defineProperties(Player.prototype, {
 		width: {
@@ -7153,26 +6412,12 @@ var PinkFie = (function() {
 		this.library = new Library();
 		this.renderer = new RenderCanvas2d();
 		this.canvas = this.renderer.canvas;
-
-		this.canvas.tabIndex = 0;
-		this.canvas.style.outline = 'none';
-
-		this.root = document.createElement("div");
-		this.root.className = "pinkfie-root";
-		this.root.style.width = "640px";
-		this.root.style.height = "400px";
-
-		this.root.appendChild(this.canvas);
-
 		this.avm1 = new Avm1();
 		this.audio = new AudioBackend();
 	}
 	Player.prototype.setPlaying = function(v) {
-		if (v) {
-			this.audio.play();
-		} else {
-			this.audio.pause();
-		}
+		if (v) this.audio.play();
+		else this.audio.pause();
 		this.isPlaying = v;
 	}
 	Player.prototype.getVolume = function() {
@@ -7181,36 +6426,11 @@ var PinkFie = (function() {
 	Player.prototype.setVolume = function(volume) {
 		this.audio.setVolume(volume);
 	}
-	Player.prototype.getRectStage = function() {
-		var _movieCanvas = this.canvas;
-		var w, h;
-		var x = 0, y = 0;
-		var __Width = this._width;
-		var __Height = this._height;
-		if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
-			w = (_movieCanvas.width * (__Height / _movieCanvas.height));
-			h = (_movieCanvas.height * (__Height / _movieCanvas.height));
-			x = (__Width - w) / 2;
-		} else {
-			w = (_movieCanvas.width * (__Width / _movieCanvas.width));
-			h = (_movieCanvas.height * (__Width / _movieCanvas.width));
-			y = (__Height - h) / 2;
-		}
-		return [x, y, w, h];
-	}
 	Player.prototype.resize = function(w, h) {
 		this.needsRender = true;
-
-		this._width = w;
-		this._height = h;
-
-		this.root.style.width = w + "px";
-		this.root.style.height = h + "px";
-
 		var scaleW = w / this.width;
 		var scaleH = h / this.height;
 		var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
-		
 		var qScale = 1;
 		if (this.getQuality() == "low") {
 			qScale = 0.5;
@@ -7220,20 +6440,9 @@ var PinkFie = (function() {
 		if (this.getQuality() == "high") {
 			qScale *= (window.devicePixelRatio || 1);
 		}
-
 		var _w = Math.floor(this.width * scale);
 		var _h = Math.floor(this.height * scale);
-
 		this.renderer.resize(_w * qScale, _h * qScale);
-
-		var rc = this.getRectStage();
-
-		this.canvas.style.left = rc[0] + "px";
-		this.canvas.style.top = rc[1] + "px";
-
-		this.canvas.style.width = _w + "px";
-		this.canvas.style.height = _h + "px";
-
 		this.render();
 	}
 	Player.prototype.getRootClip = function() {
@@ -7266,28 +6475,26 @@ var PinkFie = (function() {
 		this.renderer.setQuality(quality);
 	}
 	Player.prototype.loadSwfData = function(data) {
-		if (this.onprogresstext) this.onprogresstext('Compressing SWF');
 		var movie = SwfMovie.fromData(data);
 		this.setRootMovie(movie);
 	}
-	Player.prototype.preload = function() {
-		if (this.onprogresstext) this.onprogresstext('Building Tags');
-		var root = this.getRootClip();
-		this.mutateWithUpdateContext((context) => {
-			root.preload(context, () => {
-				console.log("Loaded audio compressed: " + this.audio.getCompressSound());
-				this.loaded = true;
-				if (this.callback) {
-					this.callback();
-				}
-			});
+	Player.prototype.preload = function(executionLimit) {
+		return this.mutateWithUpdateContext((context) => {
+			var did_finish = true;
+			var root = this.getRootClip();
+			did_finish = root.preload(context, executionLimit);
+			return did_finish;
 		});
 	}
+	Player.prototype.getProgress = function() {
+		var root = this.getRootClip();
+		return [root.getLoadedBytes(), root.getTotalBytes()];
+	}
 	Player.prototype.tick = function(dt) {
-		if (!this.loaded) return;
-		if (this.isPlaying) {
+		var isF = this.preload(new ExecutionLimit(50000));
+		if (this.isPlaying && isF) {
 			this.frameAccumulator += dt;
-			var frameTime = 1000 / this.frameRate;
+			var frameTime = +(1000 / this.frameRate).toFixed(1);
 			while (this.frameAccumulator >= frameTime) {
 				this.frameAccumulator -= frameTime;
 				this.runFrame();
@@ -7298,10 +6505,9 @@ var PinkFie = (function() {
 	Player.prototype.render = function() {
 		if (!this.needsRender) return;
 		this.needsRender = false;
-		if (!this.loaded) return;
 		var backgroundColor = this.swf.backgroundColor;
 		var ts = new TransformStack();
-		ts.stackPush([(this.renderer.width / (this.width * twips)), 0, 0, (this.renderer.height / (this.height * twips)), 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
+		ts.stackPush([((this.renderer.width / this.width) / twips), 0, 0, ((this.renderer.height / this.height) / twips), 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
 		var context = new RenderContext({
 			library: this.library,
 			renderer: this.renderer,
@@ -7321,8 +6527,7 @@ var PinkFie = (function() {
 	}
 	Player.prototype.setRootMovie = function(movie) {
 		var dfgfd = "Loaded SWF version " + movie.version + " resolution " + movie.width + "x" + movie.height + " " + movie.frameRate + "FPS";
-		dfgfd += " total frames: " + movie.numFrames + " ";
-		dfgfd += "ActionScript 3: " + !!movie.isActionScript3() + "";
+		dfgfd += " total frames: " + movie.numFrames + " action script 3: " + !!movie.isActionScript3() + "";
 		console.log(dfgfd);
 		this.swf = movie;
 		this.frameRate = movie.frameRate;
@@ -7333,8 +6538,8 @@ var PinkFie = (function() {
 			root.postInstantiation(context, null, 'movie', false);
 			root.setDefaultInstanceName(context);
 			this._clip = root;
-			this.preload();
 		});
+		if (this.callback) this.callback();
 	}
 	Player.prototype.mutateWithUpdateContext = function(callback) {
 		var context = new UpdateContext({
@@ -7345,7 +6550,8 @@ var PinkFie = (function() {
 			swf: this.swf,
 			avm1: this.avm1,
 		});
-		callback(context);
+		let ret = callback(context);
+		return ret;
 	}
 	Player.prototype.addInstanceCounter = function() {
 		return this.instanceCounter++;
@@ -7354,6 +6560,41 @@ var PinkFie = (function() {
 		if (this.audio) this.audio.cleanup();
 		this.renderer.destroy();
 	}
+	function getDuraction(num) {
+		var txt = '';
+		var _ms = Math.floor(num);
+		var _mm = Math.floor(num / 60);
+		var ms = _ms % 60;
+		var mm = _mm % 60;
+		var mh = Math.floor(num / 3600);
+		if (_mm >= 60) {
+			txt += '' + mh;
+			txt += ':';
+		}
+		if ((mm >= 10) || (_ms < 600)) {
+			txt += '' + mm;
+		} else {
+			txt += '0' + mm;
+		}
+		txt += ':';
+		if (ms >= 10) {
+			txt += '' + ms;
+		} else {
+			txt += '0' + ms;
+		}
+		return txt;
+	}
+	function getByteText(byte) {
+		if (byte >= 1000000) {
+			return "" + (Math.floor(byte / 10000) / 100) + "MB";
+		} else {
+			if (byte >= 1000) {
+				return "" + Math.floor(byte / 1000) + "KB";
+			} else {
+				return "" + byte + "B";
+			}
+		}
+	}
 	const Slot = function() {
 		this._listeners = [];
 	}
@@ -7361,9 +6602,7 @@ var PinkFie = (function() {
 		this._listeners.push(fn);
 	}
 	Slot.prototype.emit = function() {
-		for (const listener of this._listeners) {
-			listener(...arguments);
-		}
+		for (const listener of this._listeners) listener(...arguments);
 	}
 	const ScreenCap = function() {
 		this.canvas = document.createElement("canvas");
@@ -7401,105 +6640,283 @@ var PinkFie = (function() {
 		this._height = 0;
 		this.swfData = null;
 		this.options = {};
+		this._viewFrame = false;
+		this.debugCanvas = document.createElement("canvas");
+		this.debugCtx = this.debugCanvas.getContext("2d");
+		this.debugCanvas.style.position = 'absolute';
+		this.debugCanvas.style.top = '0';
+		this.debugCanvas.style.left = '0';
+		this.debugCanvas.style.display = 'none';
+		this.debugCanvas.style.background = 'rgba(255,255,255,1)';
+		this.playerContainer.appendChild(this.debugCanvas);
 		this.resize(640, 400);
 		this.initContextMenu();
-		this.addloadingC();
+		this.addStatsControls();
+		this.addMessageVerticals();
+		this.addSettingVerticals();
 		this.startTime = Date.now();
 		this.startOffest = 0;
+		this.messageStatus = ['', 0, 1000, false];
+		this._displayMessage = [0, "", 0, 1000];
 		this.setOptions(Object.assign(Object.assign({}, options), PinkFiePlayer.DEFAULT_OPTIONS));
-		window.addEventListener('resize', () => this.updateFullscreen());
-		document.addEventListener('fullscreenchange', () => this.onfullscreenchange());
-		document.addEventListener('mozfullscreenchange', () => this.onfullscreenchange());
-		document.addEventListener('webkitfullscreenchange', () => this.onfullscreenchange());
+		window.addEventListener('resize', this.updateFullscreen.bind(this));
+		document.addEventListener('fullscreenchange', this.onfullscreenchange.bind(this));
+		document.addEventListener('mozfullscreenchange', this.onfullscreenchange.bind(this));
+		document.addEventListener('webkitfullscreenchange', this.onfullscreenchange.bind(this));
 		this.flash = null;
 		setInterval(this.tick.bind(this), 10);
 	}
 	PinkFiePlayer.prototype.initContextMenu = function() {
 		this.MenuVertical = document.createElement('div');
 		this.MenuVertical.className = 'watcher-pinkfie-menu-vertical';
-		this.movie_playPause = this._createE('Pause', () => {
+		this.movie_playPause = this._createE('Pause', function() {
 			this.toggleRunning();
 			this.MenuVertical.style.display = 'none';
 		});
 		this.MenuVertical.appendChild(this.movie_playPause);
-		this.movie_playStop = this._createE('Stop', () => {
+		this.movie_playStop = this._createE('Stop', function() {
 			this.c_playStop();
 			this.MenuVertical.style.display = 'none';
 		});
 		this.MenuVertical.appendChild(this.movie_playStop);
-		this.MenuVertical.appendChild(this._createE('Rewind', () => {
+		this.MenuVertical.appendChild(this._createE('Rewind', function() {
 			this.c_rewind();
 			this.MenuVertical.style.display = 'none';
 		}));
-		this.MenuVertical.appendChild(this._createE('Step Forward', () => {
+		this.MenuVertical.appendChild(this._createE('Step Forward', function() {
 			this.c_Forward();
 			this.MenuVertical.style.display = 'none';
 		}));
-		this.MenuVertical.appendChild(this._createE('Step Back', () => {
+		this.MenuVertical.appendChild(this._createE('Step Back', function() {
 			this.c_Back();
 			this.MenuVertical.style.display = 'none';
 		}));
-		this.MenuVertical.appendChild(this._createE('Save Screenshot', () => {
+		this.MenuVertical.appendChild(this._createE('View Stats', () => {
+			this.viewStats();
+			this.MenuVertical.style.display = 'none';
+		}));
+		this.MenuVertical.appendChild(this._createE('Save Screenshot', function() {
 			this.saveScreenshot();
 			this.MenuVertical.style.display = 'none';
 		}));
-		this.movie_swfDownload = this._createE('Download SWF', () => {
+		this.movie_swfDownload = this._createE('Download SWF', function() {
 			this.downloadSwf();
 			this.MenuVertical.style.display = 'none';
 		});
 		this.MenuVertical.appendChild(this.movie_swfDownload);
-		this.MenuVertical.appendChild(this._createE('Full Screen', () => {
+		this.MenuVertical.appendChild(this._createE('Full Screen', function() {
 			if (this.fullscreenEnabled) {
+				this._displayMessage[1] = "Full Screen: Off";
+				this._displayMessage[0] = 2;
+				this._displayMessage[2] = Date.now();
 				this.exitFullscreen();
 			} else {
+				this._displayMessage[1] = "Full Screen: On";
+				this._displayMessage[0] = 2;
+				this._displayMessage[2] = Date.now();
 				this.enterFullscreen();
 			}
 			this.MenuVertical.style.display = 'none';
 		}));
+		this.MenuVertical.appendChild(this._createE('Settings', function() {
+			this.showSetting();
+			this.MenuVertical.style.display = 'none';
+		}));
 		this.MenuVertical.style.display = 'none';
 		this.playerContainer.appendChild(this.MenuVertical);
-		
 		document.addEventListener('contextmenu', (e) => {
 			if (this.flash) {
-				if ((e.target === this.flash.canvas) || (e.target === this.clickToPlayContainer)) {
+				if ((e.target === this.flash.canvas) || (e.target === this.debugCanvas) || (e.target === this.clickToPlayContainer)) {
 					e.preventDefault();
 					this.sendList(e);
 				}
 			}
 		});
-
 		document.addEventListener('click', (e) => {
 			this.MenuVertical.style.display = 'none';
 		});
 	}
-	PinkFiePlayer.prototype.addloadingC = function() {
-		var loadingContainer = document.createElement("div");
-		loadingContainer.className = "pinkfie-player-loading";
-		loadingContainer.innerHTML = '';
-		var a1 = document.createElement("div");
-		a1.className = 'pinkfie-player-loading-image';
-		var a2 = document.createElement("div");
-		a2.className = 'pinkfie-player-loading-anim';
-		var a3 = document.createElement("div");
-		a3.className = 'pinkfie-player-loading-progress';
-		var a4 = document.createElement("div");
-		a4.style.width = "0%";
-		a3.appendChild(a4);
-		loadingContainer.appendChild(a1);
-		loadingContainer.appendChild(a2);
-		loadingContainer.appendChild(a3);
-		loadingContainer.style.display = "none";
-		this.loadingContainerProgress = a4;
-		this.loadingContainerProgressText = a2;
-		this.loadingContainer = loadingContainer;
-		this.playerContainer.appendChild(this.loadingContainer);
+	PinkFiePlayer.prototype.addSettingVerticals = function() {
+		this.settingVertical = document.createElement('div');
+		this.settingVertical.className = 'watcher-pinkfie-setting';
+		this.settingVertical.style = '';
+		this.settingVertical.style.display = 'none';
+		
+		var rrj = document.createElement('div');
+		rrj.style = 'backdrop-filter: blur(2px);';
+		rrj.style.overflow = 'hidden';
+		rrj.style.position = 'relative';
+		rrj.style.top = '0';
+		rrj.style.left = '50%';
+		rrj.style.padding = '6px';
+		rrj.style.transform = 'translate(-50%, 0)';
+		rrj.style.background = 'rgba(0, 0, 0, 0.6)';
+		rrj.style.width = '320px';
+		rrj.style.height = 'auto';
+		rrj.innerHTML = '<h3 style="margin:0;">Settings</h3>';
+
+		var rrj2 = document.createElement('a');
+		rrj2.onclick = () => {
+			this.settingVertical.style.display = 'none';
+		};
+		rrj2.style = '';
+		rrj2.style.position = 'fixed';
+		rrj2.style.display = 'block';
+		rrj2.style.top = '2px';
+		rrj2.style.right = '2px';
+		rrj2.style["background-position"] = '50% 80%';
+		rrj2.innerHTML = "[x]";
+		
+
+		var rrj3 = document.createElement('label');
+		rrj3.innerHTML = "volume:";
+		var rrj4 = document.createElement('input');
+		rrj4.style.width = '70px';
+		rrj4.type = "range";
+		rrj4.value = 100;
+		rrj4.max = 100;
+		rrj4.min = 0;
+		rrj4.addEventListener('input', () => {
+			this.setOptions({
+				volume: rrj4.value
+			});
+		});
+		this._rrj4 = rrj4;
+
+		var rrj7 = document.createElement('label');
+		rrj7.innerHTML = "Quality: ";
+
+		var rrj8 = document.createElement('select');
+		rrj8.innerHTML = '<option value="high">high<option value="medium">medium<option value="low">low';
+		rrj8.addEventListener("change", () => {
+			if (rrj8.value) {
+				this.setOptions({
+					quality: rrj8.value
+				});
+			}
+		});
+
+		this.__rrj8 = rrj8;
+
+		var fdfj = document.createElement('input');
+		fdfj.type = 'range';
+		fdfj.value = 1;
+		fdfj.min = 1;
+		fdfj.max = 2;
+
+		fdfj.addEventListener("input", () => {
+			if (fdfj.value && this.flash) {
+				var clip = this.flash.getRootClip();
+				if (clip) this.c_gotoFrame(+fdfj.value, !clip.isPlaying())
+			}
+		});
+
+		this.__fdfj = fdfj;
+
+		rrj.appendChild(rrj2);
+		rrj.appendChild(rrj3);
+		rrj.appendChild(rrj4);
+		rrj.appendChild(rrj7);
+		rrj.appendChild(rrj8);
+		
+		rrj.appendChild(document.createElement("br"));
+
+		var a = document.createElement("label");
+		a.innerHTML = 'Jump Frame';
+
+		
+		var a2 = document.createElement("label");
+		a2.innerHTML = '1/1';
+
+		this.__a2 = a2;
+
+		rrj.appendChild(a);
+		rrj.appendChild(fdfj);
+		rrj.appendChild(a2);
+		
+		var rrj5 = document.createElement('label');
+		rrj5.innerHTML = "Base Bounds: ";
+
+		var rrj6 = document.createElement('input');
+		rrj6.type = "checkbox";
+		rrj6.addEventListener('change', () => {
+			this.c_bbbb();
+		});
+
+		rrj.appendChild(document.createElement("br"));
+		rrj.appendChild(rrj5);
+		rrj.appendChild(rrj6);
+
+		this.settingVertical.appendChild(rrj);
+
+		this.playerContainer.appendChild(this.settingVertical);
+	}
+	PinkFiePlayer.prototype.addMessageVerticals = function() {
+		this.messageE = document.createElement("div");
+		this.messageE.style.color = "#fff";
+		this.messageE.style.position = "absolute";
+		this.messageE.style.background = "rgba(0,0,0,0.75)";
+		this.messageE.style.backdropFilter = "blur(2px)";
+		this.messageE.style.top = "0px";
+		this.messageE.style.left = "0px";
+		this.messageE.style.width = "100%";
+		this.messageE.style.height = "auto";
+		this.messageE.style.fontSize = "15px";
+		this.messageE.style.display = "none";
+
+		var content = document.createElement("p");
+		content.textContent = 'Testing';
+
+		content.style.margin = "2px";
+		content.style.textAlign = "center";
+
+		this.messageContentE = content;
+
+		this.messageE.appendChild(content);
+
+		this.playerContainer.appendChild(this.messageE);
+	}
+	PinkFiePlayer.prototype.addStatsControls = function() {
+		this.statsE = document.createElement("div");
+		this.statsE.style.color = "#fff";
+		this.statsE.style.position = "absolute";
+		this.statsE.style.top = "0px";
+		this.statsE.style.left = "0px";
+		this.statsE.style.fontSize = "15px";
+		this.statsE.style.display = "none";
+
+		var r = document.createElement("div");
+		r.style.background = "rgba(0,0,0,0.75)";
+		r.style.backdropFilter = "blur(2px)";
+		r.style.padding = "3px 5px";
+		r.style.margin = "3px";
+		r.style.height = "auto";
+		r.style.display = "none";
+		r.style.fontSize = "12px";
+
+		var playpause = document.createElement("div");
+		playpause.textContent = "Pause";
+		playpause.style.background = "rgba(0,0,0,0.75)";
+		playpause.style.backdropFilter = "blur(2px)";
+		playpause.style.padding = "3px 5px";
+		playpause.style.margin = "3px";
+		playpause.style.width = "auto";
+		playpause.style.height = "auto";
+		playpause.style.display = "none";
+		playpause.style.fontSize = "12px";
+
+		this.statsE_R = r;
+		this.statsE_PP = playpause;
+
+		this.statsE.appendChild(playpause);
+		this.statsE.appendChild(r);
+
+		this.playerContainer.appendChild(this.statsE);
 	}
 	PinkFiePlayer.prototype._createE = function(name, fun) {
 		var MVG1 = document.createElement('div');
 		MVG1.textContent = name;
-		MVG1.onclick = function () {
-			fun();
-		};
+		MVG1.onclick = fun.bind(this);
 		return MVG1;
 	}
 	PinkFiePlayer.prototype.sendList = function(event) {
@@ -7519,6 +6936,9 @@ var PinkFie = (function() {
 		} else {
 			this.movie_playPause.innerHTML = "Resume";
 		}
+	}
+	PinkFiePlayer.prototype.attach = function(child) {
+		child.appendChild(this.root);
 	}
 	PinkFiePlayer.prototype.hasFlash = function() {
 		return !!this.flash;
@@ -7586,33 +7006,202 @@ var PinkFie = (function() {
 		document.body.classList.remove('pinkfie-body-fullscreen');
 		this._resize(this.width, this.height);
 	}
+	PinkFiePlayer.prototype.c_bbbb = function() {
+		this.setOptions({
+			viewBounds: !this.options.viewBounds
+		})
+	}
 	PinkFiePlayer.prototype.getOptions = function() {
 		return this.options;
 	}
 	PinkFiePlayer.prototype.setOptions = function(changedOptions) {
 		this.options = Object.assign(Object.assign({}, this.options), changedOptions);
+		this._rrj4.value = this.options.volume;
+		if (this.__rrj8) {
+			this.__rrj8.value = this.options.quality;
+		}
 		if (this.hasFlash()) {
 			this.applyOptionsToFlash();
 		}
 		this.onoptionschange.emit(changedOptions);
 	}
-	PinkFiePlayer.prototype.tick = function() {
-		while ((Date.now() - this.startTime) >= this.startOffest) {
-			if (this.flash) this.flash.tick(10);
-			this.startOffest += 10;
+	PinkFiePlayer.prototype.getRectStage = function() {
+		var _movieCanvas = this.flash.canvas;
+		var w = 0, h = 0, x = 0, y = 0;
+		var __Width = this._width;
+		var __Height = this._height;
+		if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
+			w = (_movieCanvas.width * (__Height / _movieCanvas.height));
+			h = (_movieCanvas.height * (__Height / _movieCanvas.height));
+			x = (__Width - w) / 2;
+		} else {
+			w = (_movieCanvas.width * (__Width / _movieCanvas.width));
+			h = (_movieCanvas.height * (__Width / _movieCanvas.width));
+			y = (__Height - h) / 2;
 		}
-		if (this.flash) this.flash.render();
+		return [x, y, w, h];
+	}
+	PinkFiePlayer.prototype.renderBounds = function() {
+		var debctx = this.debugCtx;
+		var debcanv = this.debugCanvas;
+        var clip = this.flash.getRootClip();
+        if (!clip) return;
+        debctx.clearRect(0, 0, debcanv.width, debcanv.height);
+        var rTags = [];
+        clip.debugRenderBounds([(debcanv.width / this.flash.width) / 20, 0, 0, (debcanv.height / this.flash.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0], rTags);
+		var oCT = [1,1,1,1,0,0,0,0];
+		var oColor = [0,0,0,1];
+		var oTitle = '';
+		for (let i = 0; i < rTags.length; i++) {
+			const tag = rTags[i];
+			var tid = tag[0];
+			switch(tid) {
+				case 0:
+					debctx.setTransform(1,0,0,1,0,0);
+					debctx.strokeStyle = 'rgba(' + utils.generateColorTransform(oColor, oCT).join(",") + ")";
+					debctx.lineWidth = 2;
+					debctx.beginPath();
+					debctx.moveTo(tag[1], tag[2]);
+					debctx.lineTo(tag[3], tag[4]);
+					debctx.lineTo(tag[5], tag[6]);
+					debctx.lineTo(tag[7], tag[8]);
+					debctx.lineTo(tag[1], tag[2]);
+					debctx.stroke();
+					break;
+				case 1:
+					debctx.setTransform(1,0,0,1,0,0);
+					debctx.strokeStyle = "rgba(" + utils.generateColorTransform([0,0,0,1], oCT).join(",")  + ")";
+					debctx.lineWidth = 2;
+					debctx.beginPath();
+					debctx.rect(tag[1], tag[2], tag[3] - tag[1], tag[4] - tag[2]);
+					debctx.stroke();
+					break;
+				case 2:
+					debctx.setTransform(1, 0, 0, 1, 0, 0);
+					debctx.fillStyle = "rgba(" + utils.generateColorTransform(oColor, oCT).join(",")  + ")";
+					debctx.textAlign = 'left';
+					debctx.font = '20px sans-serif';
+					debctx.fillText(oTitle, tag[1], (tag[2] - 7));
+					break;
+				case 3:
+					oCT = tag[1];
+					break;
+				case 4:
+					oTitle = tag[1];
+					oColor[0] = tag[2];
+					oColor[1] = tag[3];
+					oColor[2] = tag[4];
+					break;
+			}
+        }
+	}
+	PinkFiePlayer.prototype.tick = function() {
+		if (this.flash) {
+			while ((Date.now() - this.startTime) >= this.startOffest) {
+				this.flash.tick(10);
+				this.startOffest += 10;
+			}
+			if (this.options.viewBounds) {
+				this.debugCanvas.style.display = '';
+				this.renderBounds();
+			} else {
+				this.flash.render();
+				this.debugCanvas.style.display = 'none';
+			}
+			var gloaded = this.flash.getProgress();
+			if (gloaded[0] == gloaded[1]) {
+				this.messageStatus[0] = 'Processing SWF Complete';
+				this.messageStatus[1] = 1000;
+				this.messageStatus[3] = true;
+			} else {
+				this.messageStatus[0] = 'Processing SWF: ' + getByteText(gloaded[0]) + " / " + getByteText(gloaded[1]);
+				this.messageStatus[1] = 1000;
+				this.messageStatus[2] = Date.now();
+				this.messageStatus[3] = true;
+			}
+			if (this._displayMessage[0] == 1) {
+				if ((!this.flash.isPlaying)) {
+					this._displayMessage[2] = Date.now();
+				}
+				if (this.flash.isPlaying) {
+					this._displayMessage[1] = "Play";
+				} else {
+					this._displayMessage[1] = "Pause";
+				}
+			}
+			var rrgg = ((Date.now() - this._displayMessage[2]) < this._displayMessage[3]);
+			if ((this._displayMessage[0] && rrgg)) {
+				var GSGGG = this._displayMessage[1];
+				this.statsE_PP.textContent = GSGGG;
+				this.statsE_PP.style.display = "inline-block";
+			} else {
+				if (this._displayMessage[0] !== 1) {
+					if (this._displayMessage[0]) {
+						if (this.clickToPlayContainer) {
+							this._displayMessage[0] = 0;
+						} else {
+							this._displayMessage[0] = 1;
+						}
+					}
+				}
+				this.statsE_PP.style.display = "none";
+			}
+			var clip = this.flash.getRootClip();
+			if (clip) {
+				this.__a2.textContent = clip.currentFrame() + "/" + clip.totalframes();
+				if (clip.totalframes() > 1) {
+					this.__fdfj.min = 1;
+					this.__fdfj.max = clip.totalframes();
+					this.__fdfj.value = clip.currentFrame();
+					this.__fdfj.disabled = false;
+				} else {
+					this.__fdfj.min = 1;
+					this.__fdfj.max = 2;
+					this.__fdfj.disabled = true;
+				}
+			}
+		} else {
+			this.__fdfj.min = 1;
+			this.__fdfj.max = 2;
+			this.__fdfj.disabled = true;
+		}
+		if (this._viewFrame && this.flash) {
+			var clip = this.flash.getRootClip();
+			if (clip) {
+				var _r = getDuraction((clip.currentFrame() / clip.framesloaded()) * (clip.framesloaded() / this.flash.frameRate)) + "/" + getDuraction(clip.framesloaded() / this.flash.frameRate);
+				var _u = clip.currentFrame() + "/" + clip.framesloaded();
+				var hkj = "Time: " + _r;
+				hkj += "<br>Frame: " + _u;
+				this.statsE_R.style.display = "";
+				this.statsE_R.innerHTML = hkj;
+			}
+		} else {
+			this.statsE_R.style.display = "none";
+		}
 		if (this.isPlayMovie()) {
 			this.movie_playStop.innerHTML = "Stop";
 		} else {
 			this.movie_playStop.innerHTML = "Play";
 		}
+		if (this.messageStatus[3] && ((Date.now() - this.messageStatus[2]) > this.messageStatus[1])) {
+			this.messageE.style.display = 'none';
+		} else {
+			this.messageContentE.textContent = this.messageStatus[0];
+			this.messageE.style.display = '';
+		}
+	}
+	PinkFiePlayer.prototype.viewStats = function() {
+		if (this._viewFrame) {
+			this._viewFrame = false;
+		} else {
+			this._viewFrame = true;
+		}
 	}
 	PinkFiePlayer.prototype.setFlashPlayer = function(flash) {
-		this.loadingContainer.style.display = "none";
 		this.flash = flash;
 		this.flash.isPlaying = this.options.autoplay;
-		this.playerContainer.insertBefore(flash.root, this.playerContainer.childNodes[0]);
+		this.statsE.style.display = "";
+		this.playerContainer.insertBefore(flash.canvas, this.playerContainer.childNodes[0]);
 		this.applyOptionsToFlash();
 		this.applyResizeFlashPlayer();
 		this.onload.emit(flash);
@@ -7632,7 +7221,23 @@ var PinkFie = (function() {
 		}
 	}
 	PinkFiePlayer.prototype.applyResizeFlashPlayer = function() {
-		if (this.flash) this.flash.resize(this._width, this._height);
+		if (this.flash) {
+			this.flash.resize(this._width, this._height);
+			var rect = this.getRectStage();
+			var canvas = this.flash.canvas;
+			canvas.style.margin = '0';
+			canvas.style.position = 'absolute';
+			canvas.style.left = rect[0] + 'px';
+			canvas.style.top = rect[1] + 'px';
+			canvas.style.width = rect[2] + 'px';
+			canvas.style.height = rect[3] + 'px';
+			this.debugCanvas.style.left = rect[0] + 'px';
+			this.debugCanvas.style.top = rect[1] + 'px';
+			this.debugCanvas.width = rect[2];
+			this.debugCanvas.height = rect[3];
+			this.statsE.style.left = rect[0] + "px";
+			this.statsE.style.top = rect[1] + "px";
+		}
 	}
 	PinkFiePlayer.prototype.resize = function(w, h) {
 		this.width = w;
@@ -7642,22 +7247,45 @@ var PinkFie = (function() {
 	PinkFiePlayer.prototype._resize = function(w, h) {
 		this._width = w;
 		this._height = h;
-
 		this.playerContainer.style.width = w + "px";
 		this.playerContainer.style.height = h + "px";
-
 		this.applyResizeFlashPlayer();
+	}
+	PinkFiePlayer.prototype.fetchSwfUrl = function(url, callback) {
+		var xhr = new XMLHttpRequest();
+		xhr.onload = function () {
+			var dat = new Uint8Array(xhr.response);
+			if (xhr.status !== 200) {
+				callback(null, xhr.status || xhr.statusText);
+			} else {
+				if (dat[0] == 82) {
+					callback(new Blob([new Uint8Array(dat.buffer.slice(0x2c))]));
+				} else {
+					callback(new Blob([dat]));
+				}
+			}
+		};
+		xhr.onerror = function () {
+			callback(null, "");
+		};
+		xhr.responseType = "arraybuffer";
+		xhr.open("GET", url);
+		xhr.send();
 	}
 	PinkFiePlayer.prototype.loadSwfFromFile = function(file) {
 		this.beginLoadingSWF();
+		this.messageStatus[0] = 'Loading SWF Data';
+		this.messageStatus[3] = false;
+		this.messageE.style.display = '';
+		this.messageContentE.textContent = 'Loading SWF Data';
+		this.loadLoader(file);
+	}
+	PinkFiePlayer.prototype.loadLoader = function(file) {
+		var _this = this;
 		var flash = new Player();
-		this.loadingContainerProgressText.textContent = "Compressing SWF";
 		flash.build();
-		flash.callback = () => {
-			this.setFlashPlayer(flash);
-		};
-		flash.onprogresstext = (text) => {
-			this.loadingContainerProgressText.textContent = text;
+		flash.callback = function() {
+			_this.setFlashPlayer(flash);
 		};
 		var r = new FileReader();
 		r.onload = function(e) {
@@ -7665,7 +7293,26 @@ var PinkFie = (function() {
 		}
 		r.readAsArrayBuffer(file);
 	}
+	PinkFiePlayer.prototype.loadSwfFromURL = function(url) {
+		this.beginLoadingSWF();
+		this.messageStatus[0] = 'Loading SWF Data';
+		this.messageStatus[3] = false;
+		this.messageE.style.display = '';
+		var _this = this;
+		this.fetchSwfUrl(url, function (file, status) {
+			_this.swfData = file;
+			if (file) {
+				_this.loadLoader(file);
+			} else {
+				_this.messageStatus[0] = "Failed to load SWF: " + status;
+				_this.messageStatus[3] = false;
+				_this.messageE.style.display = '';
+				_this.messageContentE.textContent = _this.messageStatus[0];
+			}
+		});
+	}
 	PinkFiePlayer.prototype.showSetting = function() {
+		this.settingVertical.style.display = '';
 	}
 	PinkFiePlayer.prototype.getSwfName = function() {
 		var swf = this.flash.swf;
@@ -7684,7 +7331,7 @@ var PinkFie = (function() {
 	PinkFiePlayer.prototype.downloadSwf = function() {
 		if (!this.hasFlash()) return;
 		var j = this.getSwfName();
-		var h = URL.createObjectURL(new Blob([new Uint8Array(this.swfData)]));
+		var h = URL.createObjectURL(this.swfData);
 		var a = document.createElement("a");
 		a.href = h;
 		a.download = j + ".swf";
@@ -7692,9 +7339,8 @@ var PinkFie = (function() {
 	}
 	PinkFiePlayer.prototype.toggleRunning = function() {
 		if (this.flash) {
-			if (this.clickToPlayContainer) {
-				this.removeClickToPlayContainer();
-			}
+			if (this.clickToPlayContainer) this.removeClickToPlayContainer();
+			this._displayMessage[0] = 1;
 			this.flash.setPlaying(!this.flash.isPlaying);
 		}
 	}
@@ -7732,8 +7378,6 @@ var PinkFie = (function() {
 		this.flash.mutateWithUpdateContext((context) => {this.flash.getRootClip().gotoFrame(context, frame, stop)})
 	}
 	PinkFiePlayer.prototype.beginLoadingSWF = function() {
-		this.loadingContainer.style.display = "";
-		this.loadingContainerProgressText.textContent = "Loading SWF Data";
 		this.cleanup();
 		this.onstartload.emit();
 	}
@@ -7746,10 +7390,7 @@ var PinkFie = (function() {
 	}
 	PinkFiePlayer.prototype.triggerStartMovie = function() {
 		this.flash.setPlaying(true);
-		this.loadingContainer.style.display = "none";
-		if (this.clickToPlayContainer) {
-			this.removeClickToPlayContainer();
-		}
+		if (this.clickToPlayContainer) this.removeClickToPlayContainer();
 	}
 	PinkFiePlayer.prototype.showClickToPlayContainer = function() {
 		if (!this.clickToPlayContainer) {
@@ -7762,12 +7403,12 @@ var PinkFie = (function() {
 			const content = document.createElement('div');
 			content.className = 'pinkfie-player-click-to-play-icon';
 			this.clickToPlayContainer.appendChild(content);
-			this.flash.root.appendChild(this.clickToPlayContainer);
+			this.playerContainer.insertBefore(this.clickToPlayContainer, this.playerContainer.childNodes[2]);
 		}
 	}
 	PinkFiePlayer.prototype.removeClickToPlayContainer = function() {
 		if (this.clickToPlayContainer) {
-			this.flash.root.removeChild(this.clickToPlayContainer);
+			this.playerContainer.removeChild(this.clickToPlayContainer);
 			this.clickToPlayContainer = null;
 		}
 	}
@@ -7775,17 +7416,21 @@ var PinkFie = (function() {
 		if (this.clickToPlayContainer) this.removeClickToPlayContainer();
 		if (this.flash) {
 			this.flash.destroy();
-			this.playerContainer.removeChild(this.flash.root);
+			this.playerContainer.removeChild(this.flash.canvas);
 			this.flash = null;
 		}
+		this._displayMessage[0] = 0;
+		this.swfData = null;
 		this.oncleanup.emit();
 	}
 	PinkFiePlayer.DEFAULT_OPTIONS = {
 		volume: 100,
 		quality: "high",
 		autoplay: true,
+		viewBounds: false
 	}
 	return {
-		Player: PinkFiePlayer
+		Player: PinkFiePlayer,
+		SwfInput
 	}
 }());

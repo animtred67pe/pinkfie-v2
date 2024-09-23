@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Overview SWF - PinkFie</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="pinkfie.css">
+    <style>
+      body {
+        background-color: #000;
+        color: #fff;
+        font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+      }
+      a{
+        color: #fff;
+      }
+      #playlist11 {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+      }
+      #hgg {
+        position: fixed;
+        top: 0;
+        right: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+    </style>
+  </head>
+  <body>
+    <a href="#" id="loadswffile">Open SWF</a>
+    <a href="#" id="debrec">Start Recorder</a>
+    <label id="debrecstats"></label>
+    <div id="resultComplete">
+      <a href="#" id="dloadwav">Download WAV</a>
+      <a href="#" id="drec">Download Text</a>
+    </div>
+    <br>
+    <canvas id="debcanv" width="640" height="360"></canvas>
+    <div id="playlist11"></div>
+    <canvas id="hgg" width="640" height="360"></canvas>
+		<script src="pinkfie.js"></script>
+    <script>
+      var debrec = document.getElementById("debrec");
+      var debrecstats = document.getElementById("debrecstats");
+
+      var resultComplete = document.getElementById("resultComplete");
+      var dloadwav = document.getElementById("dloadwav");
+      var drec = document.getElementById("drec");
+
+      var debcanv = document.getElementById("debcanv");
+      debcanv.width = 640;
+      debcanv.height = 360;
+
+      var MaiuSample = 11025;
+
+			var c = document.getElementById('hgg');
+      c.width = 360;
+      c.height = 180;
+			var ctx = c.getContext("2d");
+      var playlistarea = document.getElementById("playlist11");
+      const ply = new PinkFie.Player();
+      ply.resize(480, 320);
+      ply.setOptions({
+        autoplay: false
+      });
+      ply.onload.subscribe(function(stage) {
+        debcanv.width = stage.width;
+        debcanv.height = stage.height;
+      });
+      ply.onstartload.subscribe(function() {
+        
+      });
+			ply.attach(playlistarea);
+      function loadSwfFile(file) {
+        ply.loadSwfFromFile(file);
+			}
+			var loadprojectfile = document.getElementById('loadswffile');
+			loadprojectfile.onclick = function() {
+				var sa = document.createElement('input');
+				sa.type = 'file';
+				sa.accept = '.swf';
+				sa.addEventListener('change', function(e) {
+					var file = e.target.files[0];
+					if (!file) 
+						return;
+					loadSwfFile(file);
+				}, false);
+				sa.click();
+			}
+		  var fh = new Float32Array(2048);
+		  var fr = new Float32Array(2048);
+
+      var jhhjhj = new Uint8Array((1024 * 1024) * 10);
+
+			function GGint16(data, pos, cc) {
+				var fixval = (cc | 0) % 0x10000;
+				data[pos] = fixval % 256;
+				data[pos + 1] = Math.floor(fixval / 256);
+			}
+			function GGint32(data, pos, cc) {
+				var fixval = (cc | 0) % 0x100000000;
+				data[pos] = fixval % 256;
+				data[pos + 1] = Math.floor(fixval / 256);
+				data[pos + 2] = Math.floor(fixval / 0x10000);
+				data[pos + 3] = Math.floor(fixval / 0x1000000);
+			}
+
+      var gsLen = 0;
+      var gsStart = 0;
+
+      function downloadWAV(_count) {
+				var rate = MaiuSample;
+				var sampleCount = _count;
+				var wavData = new Uint8Array(36 + (8 + (1 * sampleCount)));
+				wavData[0] = 82;
+				wavData[1] = 73;
+				wavData[2] = 70;
+				wavData[3] = 70;
+				GGint32(wavData, 4, (1 * sampleCount) + 36); // total size (excluding 8-byte RIFF header)
+				wavData[8] = 87;
+				wavData[9] = 65;
+				wavData[10] = 86;
+				wavData[11] = 69;
+				// format chunk
+				wavData[12] = 102;
+				wavData[13] = 109;
+				wavData[14] = 116;
+				wavData[15] = 32;
+				GGint32(wavData, 16, 16); // format chunk size
+				GGint16(wavData, 20, 1); // encoding; 1 = PCM
+				GGint16(wavData, 22, 1); // channels; 1 = mono
+				GGint32(wavData, 24, rate); // samplesPerSecond
+				GGint32(wavData, 28, rate); // bytesPerSecond
+				GGint16(wavData, 32, 1); // blockAlignment
+				GGint16(wavData, 34, 8); // bitsPerSample
+				// data chunk
+				wavData[36] = 100;
+				wavData[37] = 97;
+				wavData[38] = 116;
+				wavData[39] = 97;
+				GGint32(wavData, 40, sampleCount); // format chunk size
+
+				for (var i = 0; i < sampleCount; i++) {
+					wavData[i + 44] = jhhjhj[i];
+				}
+				var bb = new Blob([wavData]);
+				var aaa = document.createElement('a');
+				aaa.href = URL.createObjectURL(bb);
+				aaa.download = 'pinkfie' + wavData.length + '.wav';
+				aaa.click();
+			}
+      
+      function generateMatrix(point, data) {
+        return [(point[0] * data[0] + point[1] * data[2] + data[4]), point[0] * data[1] + point[1] * data[3] + data[5]];
+      }
+
+      function generateColorTransform(color, data) {
+        var r = Math.max(0, Math.min((color[0] * data[0]) + data[4], 255)) | 0;
+        var g = Math.max(0, Math.min((color[1] * data[1]) + data[5], 255)) | 0;
+        var b = Math.max(0, Math.min((color[2] * data[2]) + data[6], 255)) | 0;
+        var a = Math.max(0, Math.min((color[3] * 255 * data[3]) + data[7], 255));
+        return (a * (256 * 256 * 256)) + (r * (256 * 256)) + (g * 256) + b;
+      }
+
+      var isStartRecord = false;
+      var recordResult = "";
+
+      var oTl = 0;
+
+      debrec.onclick = function() {
+        if (isStartRecord) {
+          debrec.textContent = 'Start Recorder';
+          isStartRecord = false;
+
+          gsLen = oTl - gsStart;
+
+          resultComplete.style.display = '';
+        } else {
+          resultComplete.style.display = 'none';
+          debrec.textContent = 'Stop Recorder';
+          recordResult = "";
+          gsStart = oTl;
+          isStartRecord = true;
+        }
+      }
+
+      dloadwav.onclick = function() {
+        downloadWAV(gsLen);
+      }
+      drec.onclick = function() {
+        recordResult += "%";
+        var b = new Blob([recordResult]);
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(b);
+        a.download = "pinkfie_record_text.txt";
+        a.click();
+      }
+
+      var debctx = debcanv.getContext("2d");
+
+      var rTags = [];
+
+      setInterval(function() {
+        if (!ply.flash) return;
+        
+        var audio = ply.flash.audio;
+        if (!audio) return;
+
+        var audio = ply.flash.audio;
+        if (!audio) return;
+
+        oTl = audio.getAudioBufferFloat(fh, fr, MaiuSample);
+
+        if (isStartRecord)
+          for (let k = 0; k < 2048; k++) 
+            jhhjhj[(oTl - gsStart) + k] = Math.round((fh[k] * 120)) + 128;
+
+        ctx.clearRect(0, 0, c.width, c.height);
+        ctx.strokeStyle = "#fff";
+        ctx.beginPath();
+        ctx.moveTo(0, (c.height / 4));
+        for (var i = 0; i < c.width; i++) {
+          ctx.lineTo(i, (c.height / 4) + ((fh[((i / c.width) * 2048) | 0] || 0) * (c.height / 4)));
+        }
+        ctx.moveTo(0, (c.height / 2));
+        for (var i = 0; i < c.width; i++) {
+          ctx.lineTo(i, ((c.height / 2) + (c.height / 4)) + ((fr[((i / c.width) * 2048) | 0] || 0) * (c.height / 4)));
+        }
+        ctx.stroke();
+      }, 10);
+
+      setInterval(function() {
+        if (!ply.flash) return;
+
+        var clip = ply.flash.getRootClip();
+
+        if (!clip) return;
+        
+        debctx.clearRect(0, 0, debcanv.width, debcanv.height);
+
+        rTags = [];
+
+        clip.debugRenderBounds([1/20,0,0,1/20,0,0], [1,1,1,1,0,0,0,0], rTags);
+        var oTitle = '';
+        
+        for (let i = 0; i < rTags.length; i++) {
+          const tag = rTags[i];
+          var tid = tag[0];
+          switch(tid) {
+            case 3:
+              break;
+            case 4:
+              oTitle = tag[1];
+              break;
+            case 0:
+              debctx.setTransform(1,0,0,1,0,0);
+              debctx.strokeStyle = 'rgba(0,255,0,1)';
+              debctx.lineWidth = 2;
+              debctx.beginPath();
+              debctx.moveTo(tag[1], tag[2]);
+              debctx.lineTo(tag[3], tag[4]);
+              debctx.lineTo(tag[5], tag[6]);
+              debctx.lineTo(tag[7], tag[8]);
+              debctx.lineTo(tag[1], tag[2]);
+              debctx.stroke();
+              break;
+            case 1:
+              debctx.setTransform(1,0,0,1,0,0);
+              debctx.strokeStyle = 'rgba(255,255,255,1)';
+              debctx.lineWidth = 2;
+              debctx.beginPath();
+              debctx.rect(tag[1], tag[2], tag[3] - tag[1], tag[4] - tag[2]);
+              debctx.stroke();
+              break;
+            case 2:
+              debctx.setTransform(1, 0, 0, 1, 0, 0);
+              debctx.fillStyle = 'rgba(255,255,255,1)';
+              debctx.textAlign = 'left';
+              debctx.font = '20px sans-serif';
+              debctx.fillText(oTitle, tag[1], tag[2] - 7);
+              break;
+          }
+        }
+
+        if (isStartRecord) {
+          recordResult += rTags;
+          recordResult += "*";
+          debrecstats.textContent = "len: " + recordResult.length + " sc " + (oTl - gsStart);
+        } else {
+          debrecstats.textContent = "";
+        }
+
+      }, 1000 / 12);
+
+      resultComplete.style.display = 'none';
+    </script>
+  </body>
+</html>

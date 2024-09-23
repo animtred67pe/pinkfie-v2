@@ -23,8 +23,7 @@
 		  <a class="switch-theme">switch theme</a>
 		</div>
         <div class="app">
-			<!-- PinkFie, just like swf2js -->
-			<h1>PinkFie<span class="version"></span></h1>
+			<h1>PinkFie<span class="version">v2.0.1</span></h1>
 			<p title="Feedback is welcome! Please report any bugs">The Flash Player emulator in Javascript, is still in development.</p>
 			<div style="position: relative;">
 				<a id="loadswffile">Open Swf</a>
@@ -34,23 +33,25 @@
 			<div id="pinkfiestage" style="display: none;">
 				<div id="pinkfieplayerarea"></div>
 				<a id="viewbbb2">Play/Pause</a>
-				<!--<a id="viewbbb3">Settings</a>-->
+				<a id="viewbbb3">Settings</a>
 				<label>volume:</label>
 				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 100px">
-				<label>quality:</label>
-				<select id="fvolumeff2" value="high">
-					<option value="high">high<option value="medium">medium<option value="low">low
-				</select>
 			</div>
 			<div id="demo" style="display: none;"></div>
 			<div id="pinkfiemenu">
 				<ul>
 					<li><a href="demo.html">Player development</a></li>
+					<li><a href="test.html">Overview SWF</a></li>
+					<li><a href="te.html">SWF Reader</a></li>
+					<li><a href="let_s_snowdrop.html">Let's Snowdrop?</a></li>
+					<li><a id="downloadoldpinkfie">Download PinkFie tiny versions</a></li>
 				</ul>
 			</div>
+			<p>PinkFie source code available on <a href="https://github.com/animtred67pe/pinkfie-v2">GitHub.</a></p>
 			<p style="color: #999999;">created by <a style="color: #999999;" href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
 		</div>
 		<script src="pinkfie.js"></script>
+		<script src="common.js"></script>
         <script>
 			function querySelector(selector) {
 				var el = document.querySelector(selector);
@@ -63,7 +64,6 @@
             var player = new PinkFie.Player();
 			window.player = player;
 			var fvolumeff = document.getElementById('fvolumeff');
-			var fvolumeff2 = document.getElementById('fvolumeff2');
 
 			var demo = document.getElementById("demo");
 			var ggtitle5 = document.getElementById("ggtitle5");
@@ -72,13 +72,16 @@
 			var pinkfiestage = document.getElementById('pinkfiestage');
 
 			var viewbbb2 = document.getElementById('viewbbb2');
+			var viewbbb3 = document.getElementById('viewbbb3');
 			
 			var ssag2 = document.getElementById('ssag2');
 			var playerArea = document.getElementById('pinkfieplayerarea');
 
-			playerArea.appendChild(player.root);
+			player.attach(playerArea);
 
-			player.setOptions({
+			player.setOptions(Common.playerOptions);
+
+			if (!Common.autoplay) player.setOptions({
 				autoplay: false
 			});
 			
@@ -87,16 +90,9 @@
 					volume: (+fvolumeff.value)
 				});
 			});
-
-			fvolumeff2.addEventListener('change', function (e) {
-				player.setOptions({
-					quality: fvolumeff2.value
-				});
-			});
 			
 			player.onoptionschange.subscribe(function(o) {
 				fvolumeff.value = player.getOptions().volume;
-				fvolumeff2.value = player.getOptions().quality;
 			});
 
 			function showSwf() {
@@ -140,6 +136,9 @@
 			viewbbb2.onclick = function () {
 				player.toggleRunning();
 			}
+			viewbbb3.onclick = function () {
+				player.showSetting();
+			}
 			function oohid() {
 				pinkfiestage.style.display = "none";
 				demo.innerHTML = '';
@@ -161,6 +160,17 @@
 
 				player.loadSwfFromFile(file);
 			}
+
+			function loadSwfURL(url) {
+				pinkfiestage.style.display = "";
+				pinkfiemenu.style.display = "none";
+				demo.style.display = "none";
+				demo.innerHTML = '';
+				ggtitle5.textContent = "";
+
+				player.loadSwfFromURL(url);
+			}
+
 			var loadprojectfile = document.getElementById('loadswffile');
 			loadprojectfile.onclick = function() {
 				var sa = document.createElement('input');
@@ -175,6 +185,24 @@
 				}, false);
 				sa.click();
 			}
+
+			function downloadPinkFieOldVersions() {
+				var xhr = new XMLHttpRequest();
+				xhr.onload = function() {
+					var uint8 = new Uint8Array(xhr.response, 0x2c);
+					var zipblob = new Blob([uint8]);
+					var a = document.createElement("a");
+					a.href = URL.createObjectURL(zipblob);
+					a.download = "pinkfie tiny versions.zip";
+					a.click();
+				}
+				xhr.responseType = "arraybuffer";
+				xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/b0180f46e19e8a6999da31d09f5a9a80.wav/get/");
+				xhr.send();
+			}
+
+			var downloadPinkFieOldButton = document.getElementById("downloadoldpinkfie");
+			downloadPinkFieOldButton.onclick = downloadPinkFieOldVersions;
 
 			/** Dark Mode **/
 			function getLocalDarkMode() {
@@ -213,6 +241,10 @@
 			querySelector('.theme-select a').addEventListener('click', function() {
 				toggleDarkMode();
 			});
+			
+			if (Common.swfUrl) {
+				loadSwfURL(Common.swfUrl);
+			}
         </script>
     </body>
 </html>

@@ -1,5 +1,6 @@
-body {
+html {
     font-family: monospace;
+    background-color: #aea;
 }
 a {
   cursor: pointer;
@@ -29,20 +30,20 @@ a {
 .app{
     width: 640px;
     margin: auto;
-    color: #000000;
+    color: #030;
 }
 .app a{
-    color: #000000;
+    color: #030;
 }
 .dark {
-    background-color:#111;
-    color: #ddd;
+    background-color:#010;
+    color: #aea;
 }
 .dark .app {
-    color: #ddd;
+    color: #aea;
 }
 .dark a {
-    color: #ddd;
+    color: #aea;
 }
 #pinkfie-player{
     width: 640px;

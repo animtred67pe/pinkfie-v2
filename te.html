@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>PinkFie - Flash Player Emulator</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" type="text/css" href="pinkfie.css">
+        <style>
+            body {
+                background-color: #eee;
+                font-family: monospace;
+            }
+            .hoain {
+                float: left;
+                border: 2px solid #555;
+                padding: 5px;
+                margin: 5px;
+                width: 500px;
+                height: auto;
+            }
+        </style>
+    </head>
+    <body>
+        <a href="#" id="loadswffile">Open SWFs</a>
+        <p id="demo"></p>
+        <div id="playlist11"></div>
+        <script src="pinkfie.js"></script>
+        <script>
+            var playlistarea = document.getElementById("playlist11");
+            var loadprojectfile = document.getElementById('loadswffile');
+            var demo = document.getElementById('demo');
+
+            function loadFileSwf(file, callback) {
+                var r = new FileReader();
+                r.onload = function(e) {
+                    callback(e.target.result);
+                }
+                r.readAsArrayBuffer(file);
+            }
+
+            function loadFileSubSwf(files, id) {
+                demo.textContent = 'Decompress SWF ' + id + "/" + files.length;
+                var file = files[id];
+                if (file) {
+                    loadFileSwf(file, function(data) {
+                        try {
+                            var resultswf = PinkFie.SwfInput.decompressSwf(data).header;
+
+                            var stageSize = resultswf.header.stageSize;
+
+                            var a = document.createElement("div");
+
+                            a.className = 'hoain';
+
+                            var dfgfd = "<h4>" + file.name + '</h4>';
+
+                            dfgfd += "compression: " + resultswf.header.compression;
+                            dfgfd += " version: " + resultswf.header.version;
+                            dfgfd += " uncompressed length: " + resultswf.uncompressedLength + "<br>";
+
+                            dfgfd += "resolution: " + ((stageSize.xMax - stageSize.xMin) / 20);
+                            dfgfd += "x" + ((stageSize.yMax - stageSize.yMin) / 20);
+                            dfgfd += " frame rate: " + resultswf.header.frameRate;
+                            dfgfd += " total frames: " + resultswf.header.numFrames + "";
+
+                            a.innerHTML = dfgfd;
+
+                            playlistarea.appendChild(a);
+                        } catch(e) {
+                            console.log(data);
+                        }
+
+                        setTimeout(function() {
+                            loadFileSubSwf(files, id + 1);
+                        }, 20);
+                    });
+                } else {
+                    demo.textContent = '';
+                }
+            }
+
+            function loadAllFiles(files) {
+                loadFileSubSwf(files, 0);
+            }
+
+            loadprojectfile.onclick = function() {
+                var sa = document.createElement('input');
+                sa.type = 'file';
+                sa.accept = '.swf';
+                sa.multiple = '*';
+                sa.addEventListener('change', function(e) {
+                    var files = e.target.files;
+                    loadAllFiles(files);
+                }, false);
+                sa.click();
+            }
+        </script>
+    </body>
+</html>

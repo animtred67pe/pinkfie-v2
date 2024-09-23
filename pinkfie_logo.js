@@ -1,16 +1,39 @@
 (function(){
-  var base64ToHex = function(dat) {
-    var str = atob(dat);
-    var uint8 = new Uint8Array(str.length);
-    for (let i = 0; i < str.length; i++) {
-      uint8[i] = str.charCodeAt(i);
-    }
-    return uint8;
-  }
   var _pinkfieSampleSWF = [];
   _pinkfieSampleSWF.push({
     name: "PinkFie Logo",
-    file: new Blob([base64ToHex("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")])
+    playerOptions: {vCamId: ''},
+    url: "https://assets.scratch.mit.edu/internalapi/asset/4081f087eb3e51d2a5eb7517f1614da9.wav/get/"
+  });
+  _pinkfieSampleSWF.push({
+    name: "602924_DG_010",
+    playerOptions: {vCamId: ''},
+    url: "https://assets.scratch.mit.edu/internalapi/asset/602fb434274cfb63f0677112ff7ff592.wav/get/"
+  });
+  _pinkfieSampleSWF.push({
+    name: "d5i5j9s-3fb8a9ba-5059-49de-8814-884a3d49f608",
+    playerOptions: {vCamId: ''},
+    url: "https://assets.scratch.mit.edu/internalapi/asset/5faded2c4df15316e2b7ff2f23269741.wav/get/"
+  });
+  _pinkfieSampleSWF.push({
+    name: "GameDerps",
+    playerOptions: {vCamId: ''},
+    url: "https://assets.scratch.mit.edu/internalapi/asset/a99eb64e0c272789e24e7c69a2726608.wav/get/"
+  });
+  _pinkfieSampleSWF.push({
+    name: "Sorenson H.263 - Equestria Girls",
+    playerOptions: {vCamId: ''},
+    url: "https://assets.scratch.mit.edu/internalapi/asset/95a0364be50d4a851e67799bfc1ccbd7.wav/get/"
+  });
+  _pinkfieSampleSWF.push({
+    name: "Sorenson H.263 - suckmylazytown",
+    playerOptions: {vCamId: ''},
+    url: "https://assets.scratch.mit.edu/internalapi/asset/67ff85a6b0c1d1ef3aefed830ea103ba.wav/get/"
+  });
+  _pinkfieSampleSWF.push({
+    name: "Sorenson H.263 - lucky star IOSYS",
+    playerOptions: {vCamId: ''},
+    url: "https://assets.scratch.mit.edu/internalapi/asset/a9b0fcded90e174b3ace03c006ecd7e1.wav/get/"
   });
   window.pinkfieSampleSWF = _pinkfieSampleSWF;
 }());
