@@ -23,10 +23,10 @@
 		  <a class="switch-theme">switch theme</a>
 		</div>
         <div class="app">
-			<h1>PinkFie<span class="version">v2.0.1</span></h1>
+			<h1>PinkFie<span class="version">v2.1.0</span></h1>
 			<p title="Feedback is welcome! Please report any bugs">The Flash Player emulator in Javascript, is still in development.</p>
 			<div style="position: relative;">
-				<a id="loadswffile">Open Swf</a>
+				<a id="loadswffile">Open .swf</a>
 				<a id="ssag2">Close</a>
 				<label id="ggtitle5"></label>
 			</div>
@@ -44,14 +44,16 @@
 					<li><a href="test.html">Overview SWF</a></li>
 					<li><a href="te.html">SWF Reader</a></li>
 					<li><a href="let_s_snowdrop.html">Let's Snowdrop?</a></li>
+					<li><a href="pkf-rs-player.html">Player written in Rust [Beta]</a></li>
 					<li><a id="downloadoldpinkfie">Download PinkFie tiny versions</a></li>
+					<li><a href="credits.html">credits</a></li>
 				</ul>
 			</div>
 			<p>PinkFie source code available on <a href="https://github.com/animtred67pe/pinkfie-v2">GitHub.</a></p>
 			<p style="color: #999999;">created by <a style="color: #999999;" href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
 		</div>
-		<script src="pinkfie.js"></script>
 		<script src="common.js"></script>
+		<script src="pinkfie.js"></script>
         <script>
 			function querySelector(selector) {
 				var el = document.querySelector(selector);
@@ -61,7 +63,7 @@
 				return el;
 			}
 
-            var player = new PinkFie.Player();
+            var player = PinkFie.createPlayer();
 			window.player = player;
 			var fvolumeff = document.getElementById('fvolumeff');
 

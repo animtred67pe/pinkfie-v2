@@ -81,12 +81,12 @@
 				</div>
 			</div>
 		</div>
-		<script src="pinkfie.js"></script>
 		<script src="common.js"></script>
+		<script src="pinkfie.js"></script>
 		<script src="pinkfie_logo.js"></script>
 		<script>
 			var autoplayL = true;
-			var player = new PinkFie.Player();
+			var player = PinkFie.createPlayer();
 			window.player = player;
 			var playerArea = document.getElementById('pinkswf');
 			var pinkswfmetadata = document.getElementById("pinkswfmetadata");
@@ -155,17 +155,26 @@
                 ggtitle5.textContent = (file.name || "No file selected.");
 				player.loadSwfFromFile(file);
 			}
-			function loadSwfUrl(url) {
+			function loadSwfMD5(url) {
+				pinkswfmetadataResult.innerHTML = "";
+				swffileName = "";
+                ggtitle5.textContent = "No file selected.";
+				player.loadSwfFromURL(url.split("_"));
+			}
+			function loadSwfURL(url) {
 				pinkswfmetadataResult.innerHTML = "";
 				swffileName = "";
                 ggtitle5.textContent = "No file selected.";
 				player.loadSwfFromURL(url);
 			}
 			player.setOptions(Common.playerOptions);
+
+			//player.setOptions({autoplay: false});
+
 			player.onload.subscribe(function() {
 				showSwf();
 				if (autoplayL) {
-					if (!Common.autoplay) player.setOptions({autoplay: false})
+					if (!Common.autoplay) player.setOptions({autoplay: false});
 					autoplayL = false;
 				}
 			});
@@ -213,8 +222,8 @@
 			function loadSampleSWF(infoSample) {
 				var name = infoSample.name;
 				sampleSWFpkf.value = name;
-				if (infoSample.url) {
-					loadSwfUrl(infoSample.url);
+				if (infoSample.md5) {
+					loadSwfMD5(infoSample.md5);
 				} else {
 					loadSwfFile(infoSample.file);
 				}
@@ -241,9 +250,9 @@
 			
 			if (Common.swfUrl) {
 				if (!Common.autoplay) player.setOptions({autoplay: false})
-				autoplayL = false;
+				autoplayL = false; 
 				sampleSWFpkf.value = '';
-				loadSwfUrl(Common.swfUrl);
+				loadSwfURL(Common.swfUrl);
 			} else {
 				loadSampleSWF(pinkfieSampleSWF[0]);
 			}

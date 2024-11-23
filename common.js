@@ -28,6 +28,11 @@ var Common = (function() {
   }
 
   var swfUrl = URLsearchParams("swfurl");
+  var swfMd5 = URLsearchParams("swfmd5");
+  if (!swfUrl) {
+    if (URLsearchParams("apology", true)) swfUrl = ["50f0d850bca885ee5e6196597cf3964c"];
+    if (swfMd5) swfUrl = swfMd5.split("_");
+  }
   
   var autoplay = URLsearchParams("autoplay", true);
 
