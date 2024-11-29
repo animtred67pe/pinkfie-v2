@@ -3,70 +3,651 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>Let's Snowdrop? - PinkFie</title>
-		<link rel="stylesheet" type="text/css" href="pinkfie.css">
-		<style type="text/css">
-            body {
+		<title>Testing Gif 1280x720</title>
+		<style>
+			body {
+				background: #111;
+				color: #fff;
 				font-family: monospace;
-				margin: 0;
-				overflow: hidden;
-                background-color: #000;
-                color: #fff;
-            }
-			#loadedegfdg {
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				font-size: 40px;
-			}
-			#pkfcontrols {
-				background-color: rgb(92, 206, 92);
-				height: 30px;
-				overflow: hidden;
-			}
-			#pkfcontrols > * {
-				float: left;
-				padding: 4px;
-				margin: 0;
-			}
-			#pkfcontrols a {
-				margin: 3px;
-                background-color: #3f7439;
-				color: #ffffff;
-				border-radius: 16px;
-				text-decoration-line: none;
-			}
-			#pkfcontrols a:hover {
-                background-color: #8bff7e;
-				color: #000000;
-			}
-			.pinkfie-root {
-				margin: 0;
 			}
 		</style>
 	</head>
 	<body>
-		<div id="pinkswf"></div>
-        <p id="loadedegfdg"></p>
-		<script src="pinkfie.js"></script>
+		<h1>Testing Gif 1280x720</h1>
+		<div id="fghfh"></div>
+		<p style="color: #999999;">(c) 2024 <a style="color: #999999;" href="https://www.youtube.com/channel/UCOvoRZ-BUCN_9vdKQckq9gg" target="_blank">ATFSMedia Productions (DELETE)</a></p>
 		<script>
-			var player = new PinkFie.createPlayer();
-			window.player = player;
-			var playerArea = document.getElementById('pinkswf');
-			player.attach(playerArea);
-			function _resize_() {
-				player.resize(window.innerWidth, window.innerHeight);
-			}
-			window.addEventListener("resize", _resize_);
-			_resize_();
-			function loadSwfURL(url) {
-				player.loadSwfFromURL(url);
-			}
-            player.setOptions({
-                autoplay: false
-            });
-			loadSwfURL(["ce22396713e7678970543dd713529daa"]);
+			(function() {
+				function atgif_bytereader_create(buffer) {
+					var t = {};
+					t._position = 0;
+					t.buffer = buffer;
+					t.dataView = new DataView(t.buffer);
+					return t;
+				}
+				function atgif_bytereader_getPosition(_) {
+					return _._position;
+				}
+				function atgif_bytereader_getLength(_) {
+					return _.buffer.byteLength;
+				}
+				function atgif_bytereader_readUint8(_) {
+				    return _.dataView.getUint8(_._position++);
+				}
+				function atgif_bytereader_readBytes(_, e, n) {
+				    var bytes = new Uint8Array(n + e);
+					for (var i = 0; i < n; i++) 
+						bytes[i + e] = _.dataView.getUint8(_._position + i);
+					_._position += n;
+				    return bytes;
+				}
+				function atgif_frame_create(info) {
+					var t = {};
+					t.x = info.x;
+					t.y = info.y;
+					t.w = info.w;
+					t.h = info.h;
+					t.delay = info.delay;
+					t.data = new Uint32Array(t.w * t.h);
+					return t;
+				}
+				function atgif_frame_fillRect(_, color) {
+					for (var i = 0; i < _.h; i++) {
+						for (var i2 = 0; i2 < _.w; i2++) {
+							atgif_frame_setPixel32(_, i2, i, color);
+						}
+					}
+				}
+				function atgif_frame_getPixel32(_, x, y) {
+					var _x = x - _.x;
+					var _y = y - _.y;
+					if (((_x >= 0) && (_x < _.w)) && (_y >= 0) && (_y < _.h)) {
+						var id = (_x + (_y * _.w));
+						return _.data[id];
+					}
+					return 1;
+				}
+				function atgif_frame_setPixel32(_, x, y, color) {
+					var _x = x - _.x;
+					var _y = y - _.y;
+					if (((_x >= 0) && (_x < _.w)) && (_y >= 0) && (_y < _.h)) {
+						var id = (_x + (_y * _.w));
+						_.data[id] = color;
+					}
+				}
+				var atgif_STATUS_OK = 0;
+				var atgif_STATUS_FORMAT_ERROR = 1;
+				var atgif_STATUS_OPEN_ERROR = 2;
+				var atgif_MaxStackSize = 4096;
+				function atgif_gif_decoder_create(gifData) {
+					var _ = {};
+					_._inStream = atgif_bytereader_create(gifData);
+					_._status = 0;
+					_._width = 0;
+					_._height = 0;
+					_._gctFlag = false;
+					_._gctSize = 0;
+					_._loopCount = 1;
+					_._gct = null;
+					_._lct = null;
+					_._act = null;
+					_._bgIndex = 0;
+					_._bgColor = 0;
+					_._lastBgColor = 0;
+					_._pixelAspect = 0;
+					_._lctFlag = false;
+					_._interlace = false;
+					_._lctSize = 0;
+					_._ix = 0;
+					_._iy = 0;
+					_._iw = 0;
+					_._ih = 0;
+					_._lastRect = null;
+					_._image = null;
+					_._bitmap = null;
+					_._lastImage = null;
+					_._block = new Uint8Array(0);
+					_._blockSize = 0;
+					_._dispose = 0;
+					_._lastDispose = 0;
+					_._transparency = false;
+					_._delay = 0;
+					_._transIndex = 0;
+					_._prefix = null; // Array
+					_._suffix = null; // Array
+					_._pixelStack = null;
+					_._pixels = null;
+					_.frames = null;
+					_.frameCount = 0;
+					_.done = false;
+					return _;
+				}
+				function atgif_gif_decoder_readHeader(_) {
+					var id = "";
+					for (var i = 0; i < 6; i++) 
+						id += String.fromCharCode(atgif_gif_decoder_readSingleByte(_));
+					if (!(id.indexOf("GIF") == 0)) {
+						_._status = atgif_STATUS_FORMAT_ERROR;
+						throw new Error("Invalid file type");
+					}
+					atgif_gif_decoder_readLSD(_);
+					if (_._gctFlag && !atgif_gif_decoder_hasError(_)) {
+						_._gct = atgif_gif_decoder_readColorTable(_, _._gctSize);
+						_._bgColor = _._gct[_._bgIndex];
+					}
+				};
+				function atgif_gif_decoder_readSingleByte(_) {
+					var curByte = 0;
+					try {
+						curByte = atgif_bytereader_readUint8(_._inStream);
+					} catch (e) {
+						_._status = atgif_STATUS_FORMAT_ERROR;
+					}
+					return curByte;
+				};
+				function atgif_gif_decoder_readLSD(_) {
+					_._width = atgif_gif_decoder_readShort(_);
+					_._height = atgif_gif_decoder_readShort(_);
+					var packed = atgif_gif_decoder_readSingleByte(_);
+					_._gctFlag = (packed & 0x80) != 0;
+					_._gctSize = 2 << (packed & 7);
+					_._bgIndex = atgif_gif_decoder_readSingleByte(_);
+					_._pixelAspect = atgif_gif_decoder_readSingleByte(_);
+				};
+				function atgif_gif_decoder_readShort(_) {
+					return (atgif_gif_decoder_readSingleByte(_) | (atgif_gif_decoder_readSingleByte(_) << 8)) | 0;
+				};
+				function atgif_gif_decoder_readColorTable(_, ncolors) {
+					var nbytes = 3 * ncolors;
+					var tab = null;
+					var c = new Uint8Array(0);
+					var n = 0;
+					try {
+						c = new Uint8Array(atgif_bytereader_readBytes(_._inStream, 0, nbytes));
+						n = nbytes;
+					} catch (e) {
+					}
+					if (n < nbytes) {
+						_._status = atgif_STATUS_FORMAT_ERROR;
+					} else {
+						tab = new Array(256); // max size to avoid bounds checks
+						var i = 0;
+						var j = 0;
+						while (i < ncolors) {
+							var r = (c[j++]) & 0xff;
+							var g = (c[j++]) & 0xff;
+							var b = (c[j++]) & 0xff;
+							tab[i++] = (0xff000000 | (r << 16) | (g << 8) | b);
+						}
+					}
+					return tab;
+				};
+				function atgif_gif_decoder_hasError(_) {
+					return _._status != atgif_STATUS_OK;
+				};
+				function atgif_gif_decoder_init(_) {
+					_._status = atgif_STATUS_OK;
+					_.frameCount = 0;
+					_.frames = new Array;
+					_._gct = null;
+					_._lct = null;
+				};
+				function atgif_gif_decoder_readContent(_) {
+					var code = atgif_gif_decoder_readSingleByte(_);
+					switch (code) {
+						case 0x2C:
+							atgif_gif_decoder_readImage(_);
+							break;
+						case 0x21:
+							code = atgif_gif_decoder_readSingleByte(_);
+							switch (code) {
+								case 0xf9:
+									atgif_gif_decoder_readGraphicControlExt(_);
+									break;
+								case 0xff:
+									atgif_gif_decoder_readBlock(_);
+									var app = "";
+									for (var i = 0; i < 11; i++) {
+										app += String.fromCharCode(_._block[i]);
+									}
+									if (app == "NETSCAPE2.0") {
+										atgif_gif_decoder_readNetscapeExt(_);
+									} else
+										atgif_gif_decoder_skip(_);
+									break;
+								default:
+									atgif_gif_decoder_skip(_);
+									break;
+							}
+							break;
+						case 0x3b:
+							_.done = true;
+							break;
+						case 0x00:
+							break;
+						default:
+							_._status = atgif_STATUS_FORMAT_ERROR;
+							break;
+					}
+				};
+				function atgif_gif_decoder_readImage(_) {
+					_._ix = atgif_gif_decoder_readShort(_);
+					_._iy = atgif_gif_decoder_readShort(_);
+					_._iw = atgif_gif_decoder_readShort(_);
+					_._ih = atgif_gif_decoder_readShort(_);
+					var packed = atgif_gif_decoder_readSingleByte(_);
+					_._lctFlag = (packed & 0x80) != 0;
+					_._interlace = (packed & 0x40) != 0;
+					_._lctSize = 2 << (packed & 7);
+					if (_._lctFlag) {
+						_._lct = atgif_gif_decoder_readColorTable(_, _._lctSize);
+						_._act = _._lct;
+					} else {
+						_._act = _._gct; // make global table active
+						if (_._bgIndex == _._transIndex) _._bgColor = 0;
+					}
+					var save = 0;
+					if (_._transparency) {
+						save = _._act[_._transIndex];
+						_._act[_._transIndex] = 0;
+					}
+					if (_._act == null) _._status = atgif_STATUS_FORMAT_ERROR;
+					if (atgif_gif_decoder_hasError(_)) return;
+					atgif_gif_decoder_decodeImageData(_);
+					atgif_gif_decoder_skip(_);
+					if (atgif_gif_decoder_hasError(_)) return;
+					_.frameCount++;
+					_._image = _._bitmap = atgif_frame_create({x: _._ix, y: _._iy, w: _._iw, h: _._ih, delay: _._delay});
+					atgif_gif_decoder_transferPixels(_);
+					_.frames.push(_._bitmap);
+					if (_._transparency) _._act[_._transIndex] = save;
+					atgif_gif_decoder_resetFrame(_);
+				};
+				function atgif_gif_decoder_decodeImageData(_) {
+					var NullCode = -1;
+					var npix = _._iw * _._ih;
+					var available = 0;
+					var clear = 0;
+					var code_mask = 0;
+					var code_size = 0;
+					var end_of_information = 0;
+					var in_code = 0;
+					var old_code = 0;
+					var bits = 0;
+					var code = 0;
+					var count = 0;
+					var i = 0;
+					var datum = 0;
+					var data_size = 0;
+					var first = 0;
+					var top = 0;
+					var bi = 0;
+					var pi = 0;
+					if ((_._pixels == null) || (_._pixels.length < npix)) _._pixels = new Array(npix);
+					if (_._prefix == null) _._prefix = new Array(atgif_MaxStackSize);
+					if (_._suffix == null) _._suffix = new Array(atgif_MaxStackSize);
+					if (_._pixelStack == null) _._pixelStack = new Array(atgif_MaxStackSize + 1);
+					data_size = atgif_gif_decoder_readSingleByte(_);
+					clear = 1 << data_size;
+					end_of_information = clear + 1;
+					available = clear + 2;
+					old_code = NullCode;
+					code_size = data_size + 1;
+					code_mask = (1 << code_size) - 1;
+					for (code = 0; code < clear; code++) {
+						_._prefix[code | 0] = 0;
+						_._suffix[code | 0] = code;
+					}
+					datum = bits = count = first = top = pi = bi = 0;
+					for (i = 0; i < npix;) {
+						if (top == 0) {
+							if (bits < code_size) {
+								if (count == 0) {
+									count = atgif_gif_decoder_readBlock(_);
+									if (count <= 0) break;
+									bi = 0;
+								}
+								datum += ((_._block[bi] | 0) & 0xff) << bits;
+								bits += 8;
+								bi++;
+								count--;
+								continue;
+							}
+							code = datum & code_mask;
+							datum >>= code_size;
+							bits -= code_size;
+							if ((code > available) || (code == end_of_information)) break;
+							if (code == clear) {
+								code_size = data_size + 1;
+								code_mask = (1 << code_size) - 1;
+								available = clear + 2;
+								old_code = NullCode;
+								continue;
+							}
+							if (old_code == NullCode) {
+								_._pixelStack[(top++) | 0] = _._suffix[code | 0];
+								old_code = code;
+								first = code;
+								continue;
+							}
+							in_code = code;
+							if (code == available) {
+								_._pixelStack[(top++) | 0] = first;
+								code = old_code;
+							}
+							while (code > clear) {
+								_._pixelStack[(top++) | 0] = _._suffix[code | 0];
+								code = _._prefix[code | 0];
+							}
+							first = (_._suffix[code | 0]) & 0xff;
+							if (available >= atgif_MaxStackSize) break;
+							_._pixelStack[(top++) | 0] = first;
+							_._prefix[available | 0] = old_code;
+							_._suffix[available | 0] = first;
+							available++;
+							if (((available & code_mask) == 0) && (available < atgif_MaxStackSize)) {
+								code_size++;
+								code_mask += available;
+							}
+							old_code = in_code;
+						}
+						top--;
+						_._pixels[(pi++) | 0] = _._pixelStack[top | 0];
+						i++;
+					}
+					for (i = pi; i < npix; i++) 
+						_._pixels[i | 0] = 0;
+				};
+				function atgif_gif_decoder_transferPixels(_) {
+					if (_._lastDispose > 0) {
+						if (_._lastDispose == 3) {
+							var n = _.frameCount - 2;
+							_._lastImage = n >= 0 ? _.frames[n] : null;
+						}
+						if (_._lastImage != null) {
+							if (_._lastDispose == 2) {
+								var c = _._transparency ? 0x00000001 : _._lastBgColor;
+								atgif_frame_fillRect(_._bitmap, c);
+							}
+						}
+					}
+					var dest = atgif_gif_decoder_getPixels(_, _._bitmap);
+					var pass = 1;
+					var inc = 8;
+					var iline = 0;
+					for (var i = 0; i < _._ih; i++) {
+						var line = i;
+						if (_._interlace) {
+							if (iline >= _._ih) {
+								pass++;
+								switch (pass) {
+									case 2:
+										iline = 4;
+										break;
+									case 3:
+										iline = 2;
+										inc = 4;
+										break;
+									case 4:
+										iline = 1;
+										inc = 2;
+										break;
+								}
+							}
+							line = iline;
+							iline += inc;
+						}
+						line += _._iy;
+						if (line < _._height) {
+							var k = (line * _._width) | 0;
+							var dx = (k + _._ix) | 0; // start of line in dest
+							var dlim = (dx + _._iw) | 0; // end of dest line
+							if ((k + _._width) < dlim) 
+								dlim = k + _._width; // past dest edge
+							var sx = (i * _._iw) | 0; // start of line in source
+							var index = 0;
+							var tmp = 0;
+							while (dx < dlim) {
+								index = (_._pixels[sx++]) & 0xff;
+								tmp = _._act[index];
+								if (tmp != 0) {
+									dest[dx] = tmp;
+								}
+								dx++;
+							}
+						} 
+					}
+					atgif_gif_decoder_setPixels(_, dest);
+				};
+				function atgif_gif_decoder_getPixels(_, bitmap) {
+					var pixels = new Array(_._width * _._height);
+					var count = 0;
+					var lngWidth = _._width;
+					var lngHeight = _._height;
+					var color = 0;
+					for (var th = 0; th < lngHeight; th++) {
+						for (var tw = 0; tw < lngWidth; tw++) {
+							color = atgif_frame_getPixel32(bitmap, tw, th);
+							pixels[count++] = color;
+						}
+					}
+					return pixels;
+				};
+				function atgif_gif_decoder_setPixels(_, pixels) {
+					var count = 0;
+					var color;
+					var lngWidth = _._width;
+					var lngHeight = _._height;
+					for (var th = 0; th < lngHeight; th++) {
+						for (var tw = 0; tw < lngWidth; tw++) {
+							color = pixels[count++];
+							atgif_frame_setPixel32(_._bitmap, tw, th, color)
+						}
+					}
+				};
+				function atgif_gif_decoder_resetFrame(_) {
+					_._lastDispose = _._dispose;
+					_._lastRect = [_._ix, _._iy, _._iw, _._ih];
+					_._lastImage = _._image;
+					_._lastBgColor = _._bgColor;
+					_._transparency = false;
+					_._lct = null;
+				};
+				function atgif_gif_decoder_readGraphicControlExt(_) {
+					atgif_gif_decoder_readSingleByte(_); // block size
+					var packed = atgif_gif_decoder_readSingleByte(_); // packed fields
+					_._dispose = (packed & 0x1c) >> 2; // disposal method
+					if (_._dispose == 0) 
+						_._dispose = 1; // elect to keep old image if discretionary
+					_._transparency = (packed & 1) != 0;
+					_._delay = (atgif_gif_decoder_readShort(_) * 10); // delay in milliseconds
+					_._transIndex = atgif_gif_decoder_readSingleByte(_); // transparent color index
+					atgif_gif_decoder_readSingleByte(_); // block terminator
+				};
+				function atgif_gif_decoder_readBlock(_) {
+					_._blockSize = atgif_gif_decoder_readSingleByte(_);
+					var n = 0;
+					if (_._blockSize > 0) {
+						try {
+							var count = 0;
+							while (n < _._blockSize) {
+								_._block = atgif_bytereader_readBytes(_._inStream, n, _._blockSize - n);
+								if ((_._blockSize - n) == -1) break;
+								n += (_._blockSize - n);
+							}
+						} catch (e) {
+						}
+						if (n < _._blockSize) _status = atgif_STATUS_FORMAT_ERROR;
+					}
+					return n;
+				};
+				function atgif_gif_decoder_readNetscapeExt(_) {
+					do {
+						atgif_gif_decoder_readBlock(_);
+						if (_._block[0] == 1) {
+							var b1 = (_._block[1]) & 0xff;
+							var b2 = (_._block[2]) & 0xff;
+							_._loopCount = (b2 << 8) | b1;
+						}
+					} while ((_._blockSize > 0) && !atgif_gif_decoder_hasError(_));
+				};
+				function atgif_gif_decoder_skip(_) {
+					do {
+						atgif_gif_decoder_readBlock(_);
+					} while ((_._blockSize > 0) && !atgif_gif_decoder_hasError(_));
+				};
+				var decodeGif = function(dataInfo) {
+					var gifInterval = atgif_gif_decoder_create(dataInfo.gifData);
+					var _interval = null;
+					var _step = function() {
+						if (atgif_gif_decoder_hasError(gifInterval)) {
+							_stop();
+							return;
+						}
+						var st = Date.now();
+						while ((Date.now() - st) < 20) {
+							atgif_gif_decoder_readContent(gifInterval);
+							if (atgif_gif_decoder_hasError(gifInterval)) {
+								_stop();
+								return;
+							}
+							if (gifInterval.done) 
+								break;
+						}
+						if (gifInterval.done) {
+							if (gifInterval.frameCount < 0) {
+								_stop();
+								gifInterval._status = atgif_STATUS_FORMAT_ERROR;
+								return;
+							}
+							if (dataInfo.onload)
+								dataInfo.onload({
+									width: gifInterval._width,
+									height: gifInterval._height,
+									frames: gifInterval.frames
+								});
+						} else if (dataInfo.onprogress) {
+							dataInfo.onprogress(atgif_bytereader_getPosition(gifInterval._inStream) / atgif_bytereader_getLength(gifInterval._inStream));
+						}
+					}
+					var _stop = function() {
+						clearInterval(_interval);
+					};
+					var _start = function() {
+						atgif_gif_decoder_init(gifInterval);
+						atgif_gif_decoder_readHeader(gifInterval);
+						_interval = setInterval(_step, 10);
+					};
+					_start();
+				}
+				var Player = function() {
+					this.canvas = document.createElement("canvas");
+					this.canvas.width = 100;
+					this.canvas.height = 100;
+					this.ctx = this.canvas.getContext("2d");
+					this.imageData = null;
+					this.time = 0;
+					this.timeOffest = 0;
+					this.startOffest = 0;
+					this.frames = [];
+					this.frameId = 0;
+					this.needsRender = false;
+					this.onframe = null;
+					setInterval(this.tick.bind(this), 10);
+				}
+				Player.prototype.getTime = function() {
+					return (this.time - this.startOffest) / 1000;
+				}
+				Player.prototype.getDuration = function() {
+					var ff = 0;
+					for (var i = 0; i < this.frames.length; i++) 
+						ff += this.frames[i].delay;
+					return ff;
+				}
+				Player.prototype.getCurrentFrameId = function() {
+					return this.frameId;
+				}
+				Player.prototype.getLengthFrames = function() {
+					return this.frames.length;
+				}
+				Player.prototype.tick = function() {
+					if (this.frames.length) {
+						if (this.time - this.startOffest >= this.timeOffest) {
+							this.putRender();
+							this.frameId++;
+							if (this.frameId >= this.frames.length) {
+								this.frameId = 0;
+								this.timeOffest = 0;
+								this.startOffest = this.time;
+								this.imageData.data.fill(0);
+							}
+						}
+					} else {
+						this.startOffest = this.time;
+					}
+					this.time += 10;
+				};
+				Player.prototype.putRender = function() {
+					var frame = this.frames[this.frameId];
+					this.timeOffest += frame.delay;
+					var imageData = this.imageData;
+					this.ctx.clearRect(0, 0, imageData.width, imageData.height);
+					var data = imageData.data;
+					for (var y = 0; y < frame.h; y++) {
+						for (var x = 0; x < frame.w; x++) {
+							var dx = frame.x + x;
+							var dy = frame.y + y;
+							var i = x + (y * frame.w);
+							var c = frame.data[i];
+							var o = (dx + (dy * imageData.width)) * 4;
+							if (c != 0) {
+								data[o] = (c >> 16) & 255;
+								data[o + 1] = (c >> 8) & 255;
+								data[o + 2] = c & 255;
+								data[o + 3] = (c >> 24) & 255;
+							}
+						}
+					}
+					this.ctx.putImageData(imageData, 0, 0);
+					if (this.onframe)
+						this.onframe();
+				};
+				Player.prototype.loadBuffer = function(arrayBuffer) {
+					var _this = this;
+					_this.frames = [];
+					_this.frameId = 0;
+					_this.canvas.width = 200;
+					_this.canvas.height = 200;
+					decodeGif({
+						gifData: arrayBuffer,
+						onload: function(dataInfo) {
+							console.log(dataInfo);
+							_this.frames = dataInfo.frames;
+							_this.canvas.width = dataInfo.width;
+							_this.canvas.height = dataInfo.height;
+							_this.imageData = _this.ctx.createImageData(dataInfo.width, dataInfo.height);
+							_this.timeOffest = 0;
+							_this.startOffest = _this.time;
+						},
+						onprogress: function(e) {
+							_this.ctx.clearRect(0, 0, 200, 200);
+							_this.ctx.fillStyle = "#000";
+							_this.ctx.fillRect(0, 0, 200, 200);
+							_this.ctx.fillStyle = "#fff";
+							_this.ctx.fillText("LOADING " + Math.floor(e * 100) + "%", 0, 8);
+						}
+					});
+				};
+				var fghfh = document.getElementById('fghfh');
+				var player = new Player();
+				fghfh.appendChild(player.canvas);
+				fetch("https://assets.scratch.mit.edu/internalapi/asset/9ef76f103f8ac54b3105b31a6e0fa777.wav/get/").then((e) => {
+					e.arrayBuffer().then((e1) => {
+						var dat = e1.slice(0x2c);
+						player.loadBuffer(dat);
+					});
+				});
+			}());
 		</script>
 	</body>
 </html>
