@@ -325,14 +325,9 @@ var PinkFie = (function() {
 				byte_offset = _size + 2,
 				bit_offset = 8,
 				bit_buffer = null;
-			const readNumber = function (n) {
-				let a = 0,
-					o = byte_offset,
-					i = o + n;
-				while (i > o)
-					a = (a << 8) | stream[--i];
-				byte_offset += n;
-				return a;
+			const readUint16be = function () {
+				let a = (stream[byte_offset + 1] << 8) + stream[byte_offset];
+				return byte_offset += 2, a;
 			};
 			const readUB = function (length) {
 				let value = 0;
@@ -397,7 +392,7 @@ var PinkFie = (function() {
 					case 0:
 						bit_offset = 8;
 						bit_buffer = null;
-						length = readNumber(2);
+						length = readUint16be();
 						byte_offset += 2;
 						_data.set(stream.subarray(byte_offset, byte_offset + length), _size);
 						byte_offset += length;
@@ -5123,7 +5118,6 @@ var PinkFie = (function() {
 		this.textBlocks = [];
 	};
 	TextStatic.prototype.setRenderSettings = function (settings) {};
-
 	const TextField = function (data) {
 		InteractiveObject.call(this);
 		this.staticData = null;
@@ -5163,7 +5157,6 @@ var PinkFie = (function() {
 		this.id = null;
 		this.bounds = null;
 	};
-
 	const BitmapGraphic = function (data) {
 		DisplayObject.call(this);
 		this._bitmapH = null;
@@ -5210,7 +5203,6 @@ var PinkFie = (function() {
 	BitmapGraphic.prototype.instantiate = function () {
 		return new BitmapGraphic(this);
 	};
-
 	const DisplayVideoStream = function (data) {
 		DisplayObject.call(this);
 		this.__size = [0, 0];
@@ -5354,7 +5346,6 @@ var PinkFie = (function() {
 	DisplayVideoStream.prototype.instantiate = function () {
 		return new DisplayVideoStream(this);
 	};
-
 	const typeButton = {
 		up: "buttonStateUp",
 		over: "buttonStateOver",
@@ -5474,7 +5465,6 @@ var PinkFie = (function() {
 		this.downToOverSound = null;
 		this.overToUpSound = null;
 	};
-
 	function removeIdArray(array, i) {
 		if (array.length) {
 			if (i >= array.length) {
@@ -6806,8 +6796,7 @@ var PinkFie = (function() {
 	AudioBackend.prototype.getAudioBufferFloat = function (bufferLeft, bufferRight, sampleRate) {
 		bufferLeft.fill(0);
 		bufferRight.fill(0);
-		var oe =
-			Math.floor((this.audioContext.currentTime * sampleRate) / 2048) * 2048;
+		var oe = Math.floor((this.audioContext.currentTime * sampleRate) / 2048) * 2048;
 		var ea = oe / sampleRate;
 		for (let i = 0; i < this.playingAudios.length; i++) {
 			const playingAudio = this.playingAudios[i];
@@ -6888,12 +6877,16 @@ var PinkFie = (function() {
 			} else {
 				this.stopSound(playingAudio);
 			}
+		} else {
+			this.playSound(playingAudio);
 		}
 	};
 	AudioBackend.prototype.tickPlayingSoundStream = function (playingaudio) {
 		if (!playingaudio.ended) {
 			if (this.streamSoundIsEnded(playingaudio)) {
 				this.stopStreamSound(playingaudio);
+			} else {
+				this.playStreamSound(playingaudio);
 			}
 		} else {
 		}
@@ -6959,7 +6952,11 @@ var PinkFie = (function() {
 		source.buffer = soundPlaying.buffer;
 		if (soundPlaying.nodeLR) source.connect(soundPlaying.nodeLR.inputNode);
 		else source.connect(this.node);
-		source.start(this.audioContext.currentTime, soundPlaying.soundStart);
+		var s = soundPlaying.soundStart + (this.audioContext.currentTime - soundPlaying.startTime);
+		source.loop = true;
+		source.loopStart = s;
+		source.loopEnd = s + 0.25;
+		source.start(this.audioContext.currentTime, s);
 		soundPlaying.source = source;
 	};
 	AudioBackend.prototype.startSound = function (sound, soundInfo, mc) {
@@ -7002,7 +6999,8 @@ var PinkFie = (function() {
 		var audioStream = clip.audioStream;
 		if (audioStream) {
 			if (!audioStream.ended) {
-				if ((audioStream.blocks !== result.blocks) || (Math.abs((this.audioContext.currentTime - audioStream.startTime) - (timeFrame - audioStream.timeFrame)) > 0.15)) {
+				var isS = (Math.abs((this.audioContext.currentTime - audioStream.startTime) - (timeFrame - audioStream.timeFrame)) > 0.15);
+				if ((audioStream.blocks !== result.blocks) || isS) {
 					audioStream.blocksInfo = result;
 					audioStream.blocks = result.blocks;
 					audioStream.buffer = result.buffer;
@@ -7034,7 +7032,11 @@ var PinkFie = (function() {
 		source.buffer = soundPlaying.buffer;
 		source.connect(this.node);
 		var timeFrame = soundPlaying.timeFrame;
-		source.start(this.audioContext.currentTime, timeFrame);
+		var s = timeFrame + (this.audioContext.currentTime - soundPlaying.startTime);
+		source.loop = true;
+		source.loopStart = s;
+		source.loopEnd = s + 0.25;
+		source.start(this.audioContext.currentTime, s);
 		soundPlaying.source = source;
 	};
 	AudioBackend.prototype.stopStreamSound = function (sound) {
@@ -7605,22 +7607,51 @@ var PinkFie = (function() {
 				throw new Error("Invalid picture type code: " + picture.picture_type.type);
 		}
 	};
+	H263Decoder.prototype.num_clamp = function(value, a, b) {
+		return Math.max(Math.min(value, b), a);
+	}
 	H263Decoder.prototype.decodeFrame = function (encodedFrame) {
-		var h263_data = new Uint8Array(encodedFrame.data);
-		
-		var reader = new AT_H263_Decoder.H263Reader(h263_data);
-		let picture = this.state.parsePicture(reader, null);
-	
+		var reader = new AT_H263_Decoder.H263Reader(new Uint8Array(encodedFrame.data));
+		try {
+			this.state.decodeNextPicture(reader);
+		} catch(e) {
+			console.log("Got H.263 failue: ", e);
+			return null;
+		}
+		var picture = this.state.getLastPicture();
+		let [y, b, r] = picture.as_yuv();
 		let [width, height] = picture.format.intoWidthAndHeight();
-		
+		var yuv = new Uint8Array(y.length + b.length + r.length);
+		yuv.set(y, 0);
+		yuv.set(b, y.length);
+		yuv.set(r, y.length + b.length);
 		var data = new Uint8Array((width * height) * 4);
-		data.fill(255);
-	
+		var yOffset = 0;
+		var uOffset = width * height;
+		var vOffset = width * height + (width * height) / 4;
+		for (var h = 0; h < height; h++) {
+			for (var w = 0; w < width; w++) {
+				var ypos = w + h * width + yOffset;
+				var upos = (w >> 1) + (h >> 1) * width / 2 + uOffset;
+				var vpos = (w >> 1) + (h >> 1) * width / 2 + vOffset;
+				var Y = yuv[ypos];
+				var U = yuv[upos] - 128;
+				var V = yuv[vpos] - 128;
+				var R = (Y + 1.371 * V);
+				var G = (Y - 0.698 * V - 0.336 * U);
+				var B = (Y + 1.732 * U);
+				var outputData_pos = w * 4 + width * h * 4;
+				data[0 + outputData_pos] = this.num_clamp(R, 0, 255);
+				data[1 + outputData_pos] = this.num_clamp(G, 0, 255);
+				data[2 + outputData_pos] = this.num_clamp(B, 0, 255);
+				data[3 + outputData_pos] = 255;
+			}
+		}
 		return {
-			data,
-			type: "rgba",
 			width,
 			height,
+			data,
+			type: "rgba"
 		}
 	};
 
@@ -7725,30 +7756,23 @@ var PinkFie = (function() {
 		this.withAlpha = withAlpha;
 		this.decoder = new AT_VP6_Decoder.VP6Interval(this.width, this.height, this.withAlpha);
 	};
-	VP6Decoder.prototype.init = function () {
-	};
 	VP6Decoder.prototype.preloadFrame = function (encodedFrame) {
 		return new Uint8Array(encodedFrame.data)[0] & 128;
 	};
 	VP6Decoder.prototype.decodeFrame = function (encodedFrame) {
 		if (!this.decoder) return null;
-
 		var dataUint8 = new Uint8Array(encodedFrame.data);
-
 		var keyFrame = dataUint8[0] & 128;
 		if (!keyFrame) this.decoder.reset();
-
 		var data = this.decoder.decodeVideoFrame(dataUint8);
-
+		if (!data) return null;
 		var rData = new Uint8Array((this.width * this.height) * 4);
-
 		for (let y = 0; y < this.height; y++) {
 			var xw = ((y * this.width) * 4);
 			var xw1 = (((y + 1) * this.width) * 4);
 			var yH = ((this.height - 1) - y);
 			rData.set(data.subarray(xw, xw1), ((yH * this.width) * 4));
 		}
-
 		return {
 			data: rData,
 			type: "rgba",
@@ -7799,7 +7823,7 @@ var PinkFie = (function() {
 		try {
 			result = decoder.decodeFrame(encodedFrame);
 		} catch(e) {
-			console.log(e);
+			console.log("" + e);
 		}
 		var canvas = document.createElement("canvas");
 		if (result) {
@@ -7934,10 +7958,9 @@ var PinkFie = (function() {
 		this.instanceCounter = 0;
 		this.library = null;
 		this.avm1 = null;
-		this.clip = null;
+		this._clip = null;
 		this.loaded = false;
 		this.callback = null;
-		this.isLoaded = false;
 	};
 	Object.defineProperties(Player.prototype, {
 		width: {
@@ -8038,7 +8061,6 @@ var PinkFie = (function() {
 	};
 	Player.prototype.tick = function (dt) {
 		var isF = this.preload(new ExecutionLimit(50000));
-		this.isLoaded = isF;
 		if (this.isPlaying && isF) {
 			this.frameAccumulator += dt;
 			var frameTime = +(1000 / this.frameRate).toFixed(1);
@@ -8054,12 +8076,15 @@ var PinkFie = (function() {
 		this.needsRender = false;
 		var backgroundColor = this.swf.backgroundColor;
 		var ts = new TransformStack();
+		var scaleW = this.renderer.width / this.width;
+		var scaleH = this.renderer.height / this.height;
+		var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
 		ts.stackPush(
 			[
-				this.renderer.width / this.width / 20,
+				scale / 20,
 				0,
 				0,
-				this.renderer.height / this.height / 20,
+				scale / 20,
 				0,
 				0,
 			],
@@ -8083,23 +8108,6 @@ var PinkFie = (function() {
 		});
 	};
 	Player.prototype.setRootMovie = function (movie) {
-		var dfgfd =
-			"Loaded SWF version " +
-			movie.version +
-			" resolution " +
-			movie.width +
-			"x" +
-			movie.height +
-			" " +
-			movie.frameRate +
-			"FPS";
-		dfgfd +=
-			" total frames: " +
-			movie.numFrames +
-			" action script 3: " +
-			!!movie.isActionScript3() +
-			"";
-		console.log(dfgfd);
 		this.swf = movie;
 		this.frameRate = movie.frameRate;
 		this.audio.setFrameRate(movie.frameRate);
@@ -8219,6 +8227,7 @@ var PinkFie = (function() {
 		this.addMessageVerticals();
 		this.addSettingVerticals();
 		this.startTime = Date.now();
+		this.isError = false;
 		this.messageStatus = ["", 0, 1000, false];
 		this._displayMessage = [0, "", 0, 1000];
 		this.setOptions(Object.assign(Object.assign({}, options), PinkFiePlayer.DEFAULT_OPTIONS));
@@ -8423,7 +8432,6 @@ var PinkFie = (function() {
 		this.messageE.style.left = "0px";
 		this.messageE.style.width = "100%";
 		this.messageE.style.height = "auto";
-		this.messageE.style.fontSize = "15px";
 		this.messageE.style.display = "none";
 
 		var content = document.createElement("p");
@@ -8683,9 +8691,19 @@ var PinkFie = (function() {
 			}
 		}
 	};
+	PinkFiePlayer.prototype.handleError = function (e) {
+		console.log(e);
+		this.isError = true;
+	}
 	PinkFiePlayer.prototype.tick = function () {
 		if (this.flash) {
-			this.flash.tick(10);
+			if (!this.isError) {
+				try {
+					this.flash.tick(10);
+				} catch(e) {
+					this.handleError(e);
+				}	
+			}
 			if (this.options.viewBounds) {
 				this.debugCanvas.style.display = "";
 				this.renderBounds();
@@ -8925,9 +8943,6 @@ var PinkFie = (function() {
 		this.messageContentE.textContent = "\u23F3 Loading SWF Data";
 		this.loadLoader(file);
 	};
-	PinkFiePlayer.prototype.isPreloadFlash = function () {
-		return this.flash && this.flash.isLoaded;
-	};
 	PinkFiePlayer.prototype.loadLoader = function (file) {
 		this.messageStatus[0] = "\u23F3 Descompressing SWF";
 		this.messageStatus[3] = false;
@@ -9074,6 +9089,7 @@ var PinkFie = (function() {
 		}
 	};
 	PinkFiePlayer.prototype.cleanup = function () {
+		this.isError = false;
 		if (this.clickToPlayContainer) this.removeClickToPlayContainer();
 		if (this.flash) {
 			this.flash.destroy();
@@ -9100,9 +9116,7 @@ var PinkFie = (function() {
 }());
 
 /*
- * H.263
- *
- *
+ * AT H.263 Decoder
  *
  * (c) 2024 ATFSMedia Productions
  */
@@ -9119,6 +9133,9 @@ var AT_H263_Decoder = (function() {
 	}
 	const asU8 = function(num) {
 		return (num << 24) >>> 24;
+	}
+	const asU16 = function(num) {
+		return (num << 16) >>> 16;
 	}
 	const asU32 = function(num) {
 		return num >>> 0;
@@ -9168,10 +9185,13 @@ var AT_H263_Decoder = (function() {
 	}
 
 	const is_gob_error = function(type) {
-		return (type == "Error: InvalidGobHeader");
+		return (type == "InvalidGobHeader");
 	}
 	const is_macroblock_error = function(type) {
-		return (type == "Error: InvalidMacroblockCodedBits") || (type == "Error: InvalidMacroblockHeader");
+		return (type == "InvalidMacroblockCodedBits") || (type == "InvalidMacroblockHeader");
+	}
+	const is_eof_error = function(type) {
+		return (type == "EndOfFile") || (type == "_");
 	}
 
 	const Picture = function() {
@@ -9254,7 +9274,7 @@ var AT_H263_Decoder = (function() {
 
 	const PictureTypeCode = function(type, value) {
 		this.type = type;
-		this.value = (value || null);
+		this.value = value;
 	}
 	PictureTypeCode.IFrame = 1;
 	PictureTypeCode.PFrame = 2;
@@ -9345,7 +9365,6 @@ var AT_H263_Decoder = (function() {
 				source_format = new SourceFormat(SourceFormat.Reserved);
 				bit_count = 0;
 		}
-
 		if (source_format === null) { // source_format.is_none()
 			let customWidth = reader.readBits(bit_count);
 			let customHeight = reader.readBits(bit_count);
@@ -9373,7 +9392,7 @@ var AT_H263_Decoder = (function() {
 
 		let options = PictureOption.empty();
 
-		if (asU8(reader.readBits(1) == 1)) {
+		if (asU8(reader.readBits(1)) == 1) {
 			options.USE_DEBLOCKER = true;
 		}
 
@@ -9388,6 +9407,7 @@ var AT_H263_Decoder = (function() {
 
 		let chroma_w = Math.ceil(w / 2.0);
 		let chroma_h = Math.ceil(h / 2.0);
+
 		let chroma_samples = chroma_w * chroma_h;
 
 		let chroma_b = new Uint8Array(chroma_samples);
@@ -9400,10 +9420,33 @@ var AT_H263_Decoder = (function() {
 		this.chroma_r = chroma_r; // Vec u8
 		this.chroma_samples_per_row = chroma_w;
 	}
+	DecodedPicture.prototype.as_yuv = function() {
+		return [this.luma, this.chroma_b, this.chroma_r];
+	}
 	DecodedPicture.prototype.as_header = function() {
 		return this.picture_header;
 	}
-
+	DecodedPicture.prototype.as_luma_mut = function() {
+		return this.luma;
+	}
+	DecodedPicture.prototype.as_chroma_b_mut = function() {
+		return this.chroma_b;
+	}
+	DecodedPicture.prototype.as_chroma_r_mut = function() {
+		return this.chroma_r;
+	}
+	DecodedPicture.prototype.as_luma = function() {
+		return this.luma;
+	}
+	DecodedPicture.prototype.as_chroma_b = function() {
+		return this.chroma_b;
+	}
+	DecodedPicture.prototype.as_chroma_r = function() {
+		return this.chroma_r;
+	}
+	DecodedPicture.prototype.luma_samples_per_row = function() {
+		return this.format.intoWidthAndHeight()[0];
+	}
 	function decodePei(reader) {
 		var data = [];
 		while(true) {
@@ -9456,12 +9499,96 @@ var AT_H263_Decoder = (function() {
 		}
 	}
 
+	const CodedBlockPattern = function(codes_luma, codes_chroma_b, codes_chroma_r) {
+		this.codes_luma = codes_luma;
+		this.codes_chroma_b = codes_chroma_b;
+		this.codes_chroma_r = codes_chroma_r;
+	}
+
+	function op_cmp(value) {
+		if (value > 0) {
+			return "less";
+		} else if (value < 0) {
+			return "greater";
+		} else {
+			return "equal";
+		}
+	}
+
 	const HalfPel = function(n) {
 		this.n = n; // i16
 	}
 	HalfPel.zero = function() {
 		return new HalfPel(0);
 	}
+	HalfPel.from = function(float) {
+		return new HalfPel(asI16(Math.floor(float * 2))); // TODO ((float * 2.0).floor() as i16)
+	}
+	HalfPel.from_unit = function(unit) {
+		return new HalfPel(asI16(unit));
+	}
+	HalfPel.prototype.is_mv_within_range = function(range) {
+		return -range.n <= this.n && this.n < range.n;
+	}
+	HalfPel.prototype.invert = function() {
+		switch(op_cmp(this.n)) {
+			case "greater":
+				return new HalfPel(this.n - 64);
+			case "less":
+				return new HalfPel(this.n + 64);
+			case "equal":
+				return this;
+		}
+	}
+	HalfPel.prototype.average_sum_of_mvs = function() {
+		let whole = (this.n >> 4) << 1; // div 8
+		let frac = this.n & 0x0F;
+		if (asfgdgdfg(frac, 0, 2)) {
+			return new HalfPel(whole);
+		} else if (asfgdgdfg(frac, 14, 15)) {
+			return new HalfPel(whole + 2);
+		} else {
+			return new HalfPel(whole + 1);
+		} 
+	}
+	HalfPel.prototype.median_of = function(mhs, rhs) {
+		var num_self = this.n;
+		var num_mhs = mhs.n;
+		var num_rhs = rhs.n;
+		if (num_self > num_mhs) {
+			if (num_rhs > num_mhs) {
+				if (num_rhs > num_self) {
+					return this;
+				} else {
+					return rhs;
+				}
+			} else {
+				return mhs;
+			}
+		} else if (num_mhs > num_rhs) {
+			if (num_rhs > num_self) {
+				return rhs;
+			} else {
+				return this;
+			}
+		} else {
+			return mhs;
+		}
+	}
+	HalfPel.prototype.into_lerp_parameters = function() {
+		if (this.n % 2 == 0) {
+			return [asI16(this.n / 2), false];
+		} else if (this.n < 0) {
+			return [asI16(this.n / 2 - 1), true];
+		} else {
+			return [asI16(this.n / 2), true];
+		}
+	}
+	HalfPel.STANDARD_RANGE = new HalfPel(32);
+	HalfPel.EXTENDED_RANGE = new HalfPel(64);
+	HalfPel.EXTENDED_RANGE_QUADCIF = new HalfPel(128);
+	HalfPel.EXTENDED_RANGE_SIXTEENCIF = new HalfPel(256);
+	HalfPel.EXTENDED_RANGE_BEYONDCIF = new HalfPel(512);
 
 	const MotionVector = function(n1, n2) {
 		this.n1 = n1;
@@ -9469,6 +9596,23 @@ var AT_H263_Decoder = (function() {
 	}
 	MotionVector.zero = function() {
 		return new MotionVector(HalfPel.zero(), HalfPel.zero());
+	}
+	MotionVector.prototype.median_of = function(mhs, rhs) {
+		return new MotionVector(
+			this.n1.median_of(mhs.n1, rhs.n1),
+			this.n2.median_of(mhs.n2, rhs.n2)
+		);
+	}
+	MotionVector.prototype.into_lerp_parameters = function() {
+		return [this.n1.into_lerp_parameters(), this.n2.into_lerp_parameters()];
+	}
+	MotionVector.prototype.add = function(rhs) {
+		var g1 = asI16(this.n1.n + rhs.n1.n);
+		var g2 = asI16(this.n2.n + rhs.n2.n);
+		return new MotionVector(new HalfPel(g1), new HalfPel(g2));
+	}
+	MotionVector.prototype.average_sum_of_mvs = function() {
+		return new MotionVector(this.n1.average_sum_of_mvs(), this.n2.average_sum_of_mvs());
 	}
 
 	const IntraDc = function(n) {
@@ -9485,7 +9629,7 @@ var AT_H263_Decoder = (function() {
 		if (this.n == 0xFF) {
 			return 1024;
 		} else {
-			return this.n << 3; // TODO
+			return asI16(asI16(asU16(this.n)) << 3);
 		}
 	}
 
@@ -9549,7 +9693,7 @@ var AT_H263_Decoder = (function() {
 	BlockPatternEntry.Valid = 3; // (MacroblockType, bool, bool)
 
 	const MCBPC_I_TABLE = [
-		new VlcEntry(VlcEntry.Fork, [2, 0]),
+		new VlcEntry(VlcEntry.Fork, [2, 1]),
 		new VlcEntry(VlcEntry.End, new BlockPatternEntry(
 			BlockPatternEntry.Valid,
 			[new MacroblockType(MacroblockType.Intra), false, false]
@@ -9610,6 +9754,205 @@ var AT_H263_Decoder = (function() {
 			]
 		)),
 	];
+	const MCBPC_P_TABLE = [
+		new VlcEntry(VlcEntry.Fork, [2, 1]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter),
+				false,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [6, 3]),
+		new VlcEntry(VlcEntry.Fork, [4, 5]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter4V),
+				false,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.InterQ),
+				false,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [10, 7]),
+		new VlcEntry(VlcEntry.Fork, [8, 9]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter),
+				true,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter),
+				false,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [16, 11]),
+		new VlcEntry(VlcEntry.Fork, [13, 12]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Intra),
+				false,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [14, 15]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.IntraQ),
+				false,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter),
+				true,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [24, 17]),
+		new VlcEntry(VlcEntry.Fork, [18, 21]),
+		new VlcEntry(VlcEntry.Fork, [19, 20]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter4V),
+				true,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter4V),
+				false,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [22, 23]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.InterQ),
+				true,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.InterQ),
+				false,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [30, 25]),
+		new VlcEntry(VlcEntry.Fork, [27, 26]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Intra),
+				true,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [28, 29]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Intra),
+				false,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter4V),
+				true,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [36, 31]),
+		new VlcEntry(VlcEntry.Fork, [33, 32]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Intra),
+				true,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [34, 35]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.IntraQ),
+				false,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.InterQ),
+				true,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [40, 37]),
+		new VlcEntry(VlcEntry.Fork, [38, 39]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.IntraQ),
+				true,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.IntraQ),
+				true,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [42, 41]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Stuffing)),
+		new VlcEntry(VlcEntry.Fork, [43, 44]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Invalid)),
+		new VlcEntry(VlcEntry.Fork, [45, 46]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter4Vq),
+				false,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.Fork, [47, 50]),
+		new VlcEntry(VlcEntry.Fork, [48, 49]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter4Vq),
+				false,
+				true
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Invalid)),
+		new VlcEntry(VlcEntry.Fork, [51, 52]),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter4Vq),
+				true,
+				false
+			]
+		)),
+		new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
+			[
+				new MacroblockType(MacroblockType.Inter4Vq),
+				true,
+				true
+			]
+		)),
+	];
 
 	const MODB_TABLE = [
 		new VlcEntry(VlcEntry.Fork, [1, 2]),
@@ -9618,6 +9961,16 @@ var AT_H263_Decoder = (function() {
 		new VlcEntry(VlcEntry.End, [false, true]),
 		new VlcEntry(VlcEntry.End, [true, true])
 	];
+
+	function decode_cbpb(reader) {
+		let cbp0 = reader.readBits(1) == 1;
+		let cbp1 = reader.readBits(1) == 1;
+		let cbp2 = reader.readBits(1) == 1;
+		let cbp3 = reader.readBits(1) == 1;
+		let cbp4 = reader.readBits(1) == 1;
+		let cbp5 = reader.readBits(1) == 1;
+		return new CodedBlockPattern([cbp0, cbp1, cbp2, cbp3], cbp4, cbp5);
+	}
 
 	const CBPY_TABLE_INTRA = [
 		new VlcEntry(VlcEntry.Fork, [1, 24]),
@@ -9654,7 +10007,6 @@ var AT_H263_Decoder = (function() {
 		new VlcEntry(VlcEntry.End, [false, true, true, true]),
 		new VlcEntry(VlcEntry.End, [true, true, true, true]),
 	];
-
 	function decode_dquant(reader) {
 		switch(reader.readBits(2)) {
 			case 0:
@@ -9667,6 +10019,155 @@ var AT_H263_Decoder = (function() {
 				return 2;
 			default:
 				throw new Error("InternalDecoderError");
+		}
+	}
+
+	const MVD_TABLE = [
+		new VlcEntry(VlcEntry.Fork, [2, 1]),
+		new VlcEntry(VlcEntry.End, 0.0),
+		new VlcEntry(VlcEntry.Fork, [6, 3]),
+		new VlcEntry(VlcEntry.Fork, [4, 5]),
+		new VlcEntry(VlcEntry.End, 0.5),
+		new VlcEntry(VlcEntry.End, -0.5),
+		new VlcEntry(VlcEntry.Fork, [10, 7]),
+		new VlcEntry(VlcEntry.Fork, [8, 9]),
+		new VlcEntry(VlcEntry.End, 1.0),
+		new VlcEntry(VlcEntry.End, -1.0),
+		new VlcEntry(VlcEntry.Fork, [14, 11]),
+		new VlcEntry(VlcEntry.Fork, [12, 13]),
+		new VlcEntry(VlcEntry.End, 1.5),
+		new VlcEntry(VlcEntry.End, -1.5),
+		new VlcEntry(VlcEntry.Fork, [26, 15]),
+		new VlcEntry(VlcEntry.Fork, [19, 16]),
+		new VlcEntry(VlcEntry.Fork, [17, 18]),
+		new VlcEntry(VlcEntry.End, 2.0),
+		new VlcEntry(VlcEntry.End, -2.0),
+		new VlcEntry(VlcEntry.Fork, [23, 20]),
+		new VlcEntry(VlcEntry.Fork, [21, 22]),
+		new VlcEntry(VlcEntry.End, 2.5),
+		new VlcEntry(VlcEntry.End, -2.5),
+		new VlcEntry(VlcEntry.Fork, [24, 25]),
+		new VlcEntry(VlcEntry.End, 3.0),
+		new VlcEntry(VlcEntry.End, -3.0),
+		new VlcEntry(VlcEntry.Fork, [50, 27]),
+		new VlcEntry(VlcEntry.Fork, [31, 28]),
+		new VlcEntry(VlcEntry.Fork, [29, 30]),
+		new VlcEntry(VlcEntry.End, 3.5),
+		new VlcEntry(VlcEntry.End, -3.5),
+		new VlcEntry(VlcEntry.Fork, [39, 32]),
+		new VlcEntry(VlcEntry.Fork, [36, 33]),
+		new VlcEntry(VlcEntry.Fork, [34, 35]),
+		new VlcEntry(VlcEntry.End, 4.0),
+		new VlcEntry(VlcEntry.End, -4.0),
+		new VlcEntry(VlcEntry.Fork, [37, 38]),
+		new VlcEntry(VlcEntry.End, 4.5),
+		new VlcEntry(VlcEntry.End, -4.5),
+		new VlcEntry(VlcEntry.Fork, [43, 40]),
+		new VlcEntry(VlcEntry.Fork, [41, 42]),
+		new VlcEntry(VlcEntry.End, 5.0),
+		new VlcEntry(VlcEntry.End, -5.0),
+		new VlcEntry(VlcEntry.Fork, [47, 44]),
+		new VlcEntry(VlcEntry.Fork, [45, 46]),
+		new VlcEntry(VlcEntry.End, 5.5),
+		new VlcEntry(VlcEntry.End, -5.5),
+		new VlcEntry(VlcEntry.Fork, [48, 49]),
+		new VlcEntry(VlcEntry.End, 6.0),
+		new VlcEntry(VlcEntry.End, -6.0),
+		new VlcEntry(VlcEntry.Fork, [82, 51]),
+		new VlcEntry(VlcEntry.Fork, [67, 52]),
+		new VlcEntry(VlcEntry.Fork, [60, 53]),
+		new VlcEntry(VlcEntry.Fork, [57, 54]),
+		new VlcEntry(VlcEntry.Fork, [55, 56]),
+		new VlcEntry(VlcEntry.End, 6.5),
+		new VlcEntry(VlcEntry.End, -6.5),
+		new VlcEntry(VlcEntry.Fork, [58, 59]),
+		new VlcEntry(VlcEntry.End, 7.0),
+		new VlcEntry(VlcEntry.End, -7.0),
+		new VlcEntry(VlcEntry.Fork, [64, 61]),
+		new VlcEntry(VlcEntry.Fork, [62, 63]),
+		new VlcEntry(VlcEntry.End, 7.5),
+		new VlcEntry(VlcEntry.End, -7.5),
+		new VlcEntry(VlcEntry.Fork, [65, 66]),
+		new VlcEntry(VlcEntry.End, 8.0),
+		new VlcEntry(VlcEntry.End, -8.0),
+		new VlcEntry(VlcEntry.Fork, [75, 68]),
+		new VlcEntry(VlcEntry.Fork, [72, 69]),
+		new VlcEntry(VlcEntry.Fork, [70, 71]),
+		new VlcEntry(VlcEntry.End, 8.5),
+		new VlcEntry(VlcEntry.End, -8.5),
+		new VlcEntry(VlcEntry.Fork, [73, 74]),
+		new VlcEntry(VlcEntry.End, 9.0),
+		new VlcEntry(VlcEntry.End, -9.0),
+		new VlcEntry(VlcEntry.Fork, [79, 76]),
+		new VlcEntry(VlcEntry.Fork, [77, 78]),
+		new VlcEntry(VlcEntry.End, 9.5),
+		new VlcEntry(VlcEntry.End, -9.5),
+		new VlcEntry(VlcEntry.Fork, [80, 81]),
+		new VlcEntry(VlcEntry.End, 10.0),
+		new VlcEntry(VlcEntry.End, -10.0),
+		new VlcEntry(VlcEntry.Fork, [98, 83]),
+		new VlcEntry(VlcEntry.Fork, [91, 84]),
+		new VlcEntry(VlcEntry.Fork, [88, 85]),
+		new VlcEntry(VlcEntry.Fork, [86, 87]),
+		new VlcEntry(VlcEntry.End, 10.5),
+		new VlcEntry(VlcEntry.End, -10.5),
+		new VlcEntry(VlcEntry.Fork, [89, 90]),
+		new VlcEntry(VlcEntry.End, 11.0),
+		new VlcEntry(VlcEntry.End, -11.0),
+		new VlcEntry(VlcEntry.Fork, [95, 92]),
+		new VlcEntry(VlcEntry.Fork, [93, 94]),
+		new VlcEntry(VlcEntry.End, 11.5),
+		new VlcEntry(VlcEntry.End, -11.5),
+		new VlcEntry(VlcEntry.Fork, [96, 97]),
+		new VlcEntry(VlcEntry.End, 12.0),
+		new VlcEntry(VlcEntry.End, -12.0),
+		new VlcEntry(VlcEntry.Fork, [114, 99]),
+		new VlcEntry(VlcEntry.Fork, [107, 100]),
+		new VlcEntry(VlcEntry.Fork, [104, 101]),
+		new VlcEntry(VlcEntry.Fork, [102, 103]),
+		new VlcEntry(VlcEntry.End, 12.5),
+		new VlcEntry(VlcEntry.End, -12.5),
+		new VlcEntry(VlcEntry.Fork, [105, 106]),
+		new VlcEntry(VlcEntry.End, 13.0),
+		new VlcEntry(VlcEntry.End, -13.0),
+		new VlcEntry(VlcEntry.Fork, [111, 108]),
+		new VlcEntry(VlcEntry.Fork, [109, 110]),
+		new VlcEntry(VlcEntry.End, 13.5),
+		new VlcEntry(VlcEntry.End, -13.5),
+		new VlcEntry(VlcEntry.Fork, [112, 113]),
+		new VlcEntry(VlcEntry.End, 14.0),
+		new VlcEntry(VlcEntry.End, -14.0),
+		new VlcEntry(VlcEntry.Fork, [122, 115]),
+		new VlcEntry(VlcEntry.Fork, [119, 116]),
+		new VlcEntry(VlcEntry.Fork, [117, 118]),
+		new VlcEntry(VlcEntry.End, 14.5),
+		new VlcEntry(VlcEntry.End, -14.5),
+		new VlcEntry(VlcEntry.Fork, [120, 121]),
+		new VlcEntry(VlcEntry.End, 15.0),
+		new VlcEntry(VlcEntry.End, -15.0),
+		new VlcEntry(VlcEntry.Fork, [129, 123]),
+		new VlcEntry(VlcEntry.Fork, [127, 124]),
+		new VlcEntry(VlcEntry.Fork, [125, 126]),
+		new VlcEntry(VlcEntry.End, 15.5),
+		new VlcEntry(VlcEntry.End, -15.5),
+		new VlcEntry(VlcEntry.Fork, [129, 128]),
+		new VlcEntry(VlcEntry.End, -16.0),
+		new VlcEntry(VlcEntry.End, null)
+	];
+	function decode_motion_vector(reader, picture, running_options) {
+		if (false) {
+			let x = reader.read_umv();
+			let y = reader.read_umv();
+			return new MotionVector(x, y);
+		} else {
+			var res_x = reader.readVLC(MVD_TABLE);
+			var res_Y = reader.readVLC(MVD_TABLE);
+			if (res_x === null || res_Y === null) {
+				throw new Error("InvalidMvd");
+			}
+			let x = HalfPel.from(res_x);
+			let y = HalfPel.from(res_Y);
+			return new MotionVector(x, y);
 		}
 	}
 
@@ -9690,8 +10191,7 @@ var AT_H263_Decoder = (function() {
 						mcbpc = reader.readVLC(MCBPC_I_TABLE);
 						break;
 					case PictureTypeCode.PFrame:
-						mcbpc = null;
-						console.log("MCBPC_P_TABLE");
+						mcbpc = reader.readVLC(MCBPC_P_TABLE);
 						break;
 					default:
 						throw new Error("UnimplementedDecoding");
@@ -9717,7 +10217,9 @@ var AT_H263_Decoder = (function() {
 				var has_mvdb = null;
 
 				if (picture_type.type == PictureTypeCode.PbFrame) {
-					console.log("MODB_TABLE");
+					var ergf = reader.readVLC(MODB_TABLE);
+					has_cbpb = ergf[0];
+					has_mvdb = ergf[1];
 				} else {
 					has_cbpb = false;
 					has_mvdb = false;
@@ -9738,11 +10240,11 @@ var AT_H263_Decoder = (function() {
 
 				let coded_block_pattern_b = null;
 				if (has_cbpb) {
-					console.log("fdsf");
-					coded_block_pattern_b = "fdsf";
+					coded_block_pattern_b = decode_cbpb(reader);
 				}
 
 				let d_quantizer = null;
+
 				if (running_options.MODIFIED_QUANTIZATION) {
 					throw new Error("UnimplementedDecoding");
 				} else if (mb_type.has_quantizer()) {
@@ -9751,25 +10253,24 @@ var AT_H263_Decoder = (function() {
 
 				let motion_vector = null;
 				if (mb_type.is_inter() || picture_type.is_any_pbframe()) {
-					console.log("decode_motion_vector");
+					motion_vector = decode_motion_vector(reader, picture, running_options);
 				}
 
 				let addl_motion_vectors = null;
 				if (mb_type.has_fourvec()) {
-					/*
-						let mv2 = decode_motion_vector(reader, picture, running_options)?;
-						let mv3 = decode_motion_vector(reader, picture, running_options)?;
-						let mv4 = decode_motion_vector(reader, picture, running_options)?;
-
-						Some([mv2, mv3, mv4])
-					*/
-					console.log("Some([mv2, mv3, mv4])");
+					let mv2 = decode_motion_vector(reader, picture, running_options);
+					let mv3 = decode_motion_vector(reader, picture, running_options);
+					let mv4 = decode_motion_vector(reader, picture, running_options);
+					addl_motion_vectors = [mv2, mv3, mv4];
 				}
 				let motion_vectors_b = null;
 				if (has_mvdb) {
-					console.log("has_mvdb");
+					let mv1 = decode_motion_vector(reader, picture, running_options);
+					let mv2 = decode_motion_vector(reader, picture, running_options);
+					let mv3 = decode_motion_vector(reader, picture, running_options);
+					let mv4 = decode_motion_vector(reader, picture, running_options);
+					motion_vectors_b = [mv1, mv2, mv3, mv4];
 				}
-
 				return new Macroblock(Macroblock.Coded, {
 					mb_type,
 					coded_block_pattern: {
@@ -9783,12 +10284,10 @@ var AT_H263_Decoder = (function() {
 					addl_motion_vectors,
 					motion_vectors_b,
 				});
-
 			} else {
-
+				return new Macroblock(Macroblock.Uncoded);
 			}
 		});
-		
 	}
 
 	const ShortTCoefficient = function(type, value) {
@@ -10418,55 +10917,53 @@ var AT_H263_Decoder = (function() {
 	]
 
 	function decode_block(reader, decoder_options, picture, running_options, macroblock_type, tcoef_present) {
-		// with_transaction
-		let intradc = null;
-		if (macroblock_type.is_intra()) {
-			intradc = IntraDc.from_u8(reader.readUint8());
-		}
-		var tcoef = [];
-
-		while(tcoef_present) {
-			let short_tcoef = reader.readVLC(TCOEF_TABLE);
-			if (!short_tcoef) {
-				console.log("short_tcoef");
-				break;
+		return reader.withTransaction(function(reader) {
+			let intradc = null;
+			if (macroblock_type.is_intra()) {
+				intradc = IntraDc.from_u8(reader.readUint8());
+				if (intradc === null) 
+					throw new Error("InvalidIntraDc");
 			}
-			switch(short_tcoef.type) {
-				case ShortTCoefficient.EscapeToLong:
-					let level_width = null;
-					if (decoder_options.sorensonSpark && (picture.version == 1)) {
-						if (reader.readBits(1) == 1) {
-							level_width = 11;
+			var tcoef = [];
+			while(tcoef_present) {
+				let short_tcoef = reader.readVLC(TCOEF_TABLE);
+				if (short_tcoef === null) 
+					throw new Error("InvalidShortCoefficient");
+				switch(short_tcoef.type) {
+					case ShortTCoefficient.EscapeToLong:
+						let level_width = null;
+						if (decoder_options.sorensonSpark && (picture.version == 1)) {
+							if (reader.readBits(1) == 1) {
+								level_width = 11;
+							} else {
+								level_width = 7;
+							}
 						} else {
-							level_width = 7;
+							level_width = 8;
 						}
-					} else {
-						level_width = 8;
-					}
-					let last = reader.readBits(1) == 1;
-					let run = reader.readBits(6);
-					let level = reader.readSignedBits(level_width);
-					if (level == 0) {
-						throw new Error("InvalidLongCoefficient");
-					}
-					tcoef.push(new TCoefficient(false, run, level));
-					tcoef_present = !last;
-					break;
-				case ShortTCoefficient.Run:
-					var res = short_tcoef.value;
-					let sign = reader.readBits(1);
-					if (sign == 0) {
-						tcoef.push(new TCoefficient(true, res.run, res.level));
-					} else {
-						tcoef.push(new TCoefficient(true, res.run, -res.level));
-					}
-					tcoef_present = !res.last;
-					break;
-			}  
-		}
-
-		return new Block(intradc, tcoef);
-
+						let last = reader.readBits(1) == 1;
+						let run = reader.readBits(6);
+						let level = reader.readSignedBits(level_width);
+						if (level == 0) {
+							throw new Error("InvalidLongCoefficient");
+						}
+						tcoef.push(new TCoefficient(false, run, level));
+						tcoef_present = !last;
+						break;
+					case ShortTCoefficient.Run:
+						var res = short_tcoef.value;
+						let sign = reader.readBits(1);
+						if (sign == 0) {
+							tcoef.push(new TCoefficient(true, res.run, res.level));
+						} else {
+							tcoef.push(new TCoefficient(true, res.run, -res.level));
+						}
+						tcoef_present = !res.last;
+						break;
+				}  
+			}
+			return new Block(intradc, tcoef);
+		});
 	}
 
 	const num_signum = function(num) {
@@ -10570,6 +11067,351 @@ var AT_H263_Decoder = (function() {
 		});
 	}
 
+	function read_sample(pixel_array, samples_per_row, num_rows, pos) {
+		let [x, y] = pos;
+		let _x = num_clamp(x, 0, samples_per_row - 1);
+		let _y = num_clamp(y, 0, num_rows - 1);
+		return pixel_array[_x + (_y * samples_per_row)];
+	}
+	function lerp(sample_a, sample_b, middle) {
+		if (middle) {
+			return asU8((sample_a + sample_b + 1) / 2);
+		} else {
+			return asU8(sample_a);
+		}
+	}
+
+	function asfgdgdfg(value, min, max) {
+		return (value >= min) && (value <= max);
+	}
+
+	function gather_block(pixel_array, samples_per_row, pos, mv, target) {
+		var g = mv.into_lerp_parameters();
+		let [x_delta, x_interp] = g[0];
+		let [y_delta, y_interp] = g[1];
+		let src_x = pos[0] + x_delta;
+		let src_y = pos[1] + y_delta;
+		let array_height = Math.floor(pixel_array.length / samples_per_row);
+		let block_cols = num_clamp((samples_per_row - pos[0]), 0, 8);
+		let block_rows = num_clamp((array_height - pos[1]), 0, 8);
+		if (!x_interp && !y_interp) {
+			if (block_cols == 8 && block_rows == 8 && asfgdgdfg(src_x, 0, samples_per_row - 8) && asfgdgdfg(src_y, 0, array_height - 8)) {
+				for (var j = 0; j < 8; j++) {
+					let src_offset = src_x + ((src_y + j) * samples_per_row);
+					let dest_offset = pos[0] + (pos[1] + j) * samples_per_row;
+					for (var _ = 0; _ < 8; _++) {
+						target[dest_offset + _] = pixel_array[src_offset + _];
+					}
+				}
+			} else {
+				for (var _j = 0; _j < block_rows; _j += 1) {
+					var j = _j;
+					var v = _j + src_y;
+					for (var _i = 0; _i < block_cols; _i += 1) {
+						var i = _i;
+						var u = _i + src_x;
+						target[pos[0] + i + ((pos[1] + j) * samples_per_row)] = read_sample(pixel_array, samples_per_row, array_height, [u, v]);
+					}
+				}
+			}
+		} else {
+			for (var _j = 0; _j < block_rows; _j += 1) {
+				var j = _j;
+				var v = _j + src_y;
+				for (var _i = 0; _i < block_cols; _i += 1) {
+					var i = _i;
+					var u = _i + src_x;
+					let sample_0_0 = read_sample(pixel_array, samples_per_row, array_height, [u, v]);
+					let sample_1_0 = read_sample(pixel_array, samples_per_row, array_height, [u + 1, v]);
+					let sample_0_1 = read_sample(pixel_array, samples_per_row, array_height, [u, v + 1]);
+					let sample_1_1 = read_sample(pixel_array, samples_per_row, array_height, [u + 1, v + 1]);
+					if (x_interp && y_interp) {
+						let sample = asU8((sample_0_0 + sample_1_0 + sample_0_1 + sample_1_1 + 2) / 4);
+						target[pos[0] + i + ((pos[1] + j) * samples_per_row)] = sample;
+					} else {
+						let sample_mid_0 = lerp(sample_0_0, sample_1_0, x_interp);
+						let sample_mid_1 = lerp(sample_0_1, sample_1_1, x_interp);
+						target[pos[0] + i + ((pos[1] + j) * samples_per_row)] = lerp(sample_mid_0, sample_mid_1, y_interp);
+					}
+				}
+			}
+		}
+	}
+
+	function gather(mb_types, reference_picture, mvs, mb_per_line, new_picture) {
+		for (var i = 0; i < mb_types.length; i++) { // TODO mb_types.iter().zip(mvs.iter()).enumerate()
+			var mb_type = mb_types[i];
+			var mv = mvs[i];
+			if (mb_type.is_inter()) {
+				if (!reference_picture)
+					throw new Error("UncodedIFrameBlocks");
+				let luma_samples_per_row = reference_picture.luma_samples_per_row();
+				let pos = [
+					Math.floor(i % mb_per_line) * 16,
+					Math.floor(i / mb_per_line) * 16
+				];
+				gather_block(reference_picture.as_luma(), luma_samples_per_row, pos, mv[0], new_picture.as_luma_mut());
+				gather_block(reference_picture.as_luma(), luma_samples_per_row, [pos[0] + 8, pos[1]], mv[1], new_picture.as_luma_mut());
+				gather_block(reference_picture.as_luma(), luma_samples_per_row, [pos[0], pos[1] + 8], mv[2], new_picture.as_luma_mut());
+				gather_block(reference_picture.as_luma(), luma_samples_per_row, [pos[0] + 8, pos[1] + 8], mv[3], new_picture.as_luma_mut());
+				let mv_chr = mv[0].add(mv[1].add(mv[2].add(mv[3]))).average_sum_of_mvs();
+				let chroma_samples_per_row = reference_picture.chroma_samples_per_row;
+				let chroma_pos = [Math.floor(i % mb_per_line) * 8, Math.floor(i / mb_per_line) * 8];
+				gather_block(reference_picture.as_chroma_b(), chroma_samples_per_row, [chroma_pos[0], chroma_pos[1]], mv_chr, new_picture.as_chroma_b_mut());
+				gather_block(reference_picture.as_chroma_r(), chroma_samples_per_row, [chroma_pos[0], chroma_pos[1]], mv_chr, new_picture.as_chroma_r_mut());
+			}
+		}
+	}
+
+	function num_clamp(value, a, b) {
+		return Math.max(Math.min(value, b), a);
+	}
+
+	const BASIS_TABLE = [
+		new Float32Array([0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677]),
+		new Float32Array([0.98078525, 0.8314696, 0.5555702, 0.19509023, -0.19509032, -0.55557036, -0.83146966, -0.9807853]),
+		new Float32Array([0.9238795, 0.38268343, -0.38268352, -0.9238796, -0.9238795, -0.38268313, 0.3826836, 0.92387956]),
+		new Float32Array([0.8314696, -0.19509032, -0.9807853, -0.55557, 0.55557007, 0.98078525, 0.19509007, -0.8314698]),
+		new Float32Array([0.70710677, -0.70710677, -0.70710665, 0.707107, 0.70710677, -0.70710725, -0.70710653,  0.7071068]),
+		new Float32Array([0.5555702, -0.9807853, 0.19509041, 0.83146936, -0.8314698, -0.19508928, 0.9807853, -0.55557007]),
+		new Float32Array([0.38268343, -0.9238795, 0.92387974, -0.3826839, -0.38268384, 0.9238793, -0.92387974,  0.3826839]),
+		new Float32Array([0.19509023, -0.55557, 0.83146936, -0.9807852, 0.98078525, -0.83147013, 0.55557114, -0.19508967])
+	];
+
+	function idct_1d(input, output) {
+		output.fill(0);
+		for (var i = 0; i < output.length; i++) {
+			for (var freq = 0; freq < 8; freq++) {
+				output[i] += input[freq] * BASIS_TABLE[freq][i];
+			}
+		}
+	}
+
+	function idct_channel(block_levels, output, blk_per_line, output_samples_per_line) {
+		let output_height = output.length / output_samples_per_line;
+		let blk_height = block_levels.length / blk_per_line;
+
+		let idct_intermediate = [
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8)
+		];
+		let idct_output = [
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8),
+			new Float32Array(8)
+		];
+		for (var y_base = 0; y_base < blk_height; y_base++) {
+			for (var x_base = 0; x_base < blk_per_line; x_base++) {
+				let block_id = x_base + (y_base * blk_per_line);
+				if (block_id >= block_levels.length) {
+					continue;
+				}
+				let xs = num_clamp((output_samples_per_line - x_base * 8), 0, 8);
+				let ys = num_clamp((output_height - y_base * 8), 0, 8);
+				var b = block_levels[block_id];
+				switch(b.type) {
+					case DecodedDctBlock.Zero:
+						break;
+					case DecodedDctBlock.Dc:
+						var dc = b.value;
+						let clipped_idct = num_clamp(asI16((dc * 0.5 / 4.0 + num_signum(dc) * 0.5)), -256, 255);
+						for (var y_offset = 0; y_offset < ys; y_offset++) {
+							for (var x_offset = 0; x_offset < xs; x_offset++) {
+								let x = x_base * 8 + x_offset;
+								let y = y_base * 8 + y_offset;
+								let mocomp_pixel = asI16(output[x + (y * output_samples_per_line)]);
+								output[x + (y * output_samples_per_line)] = asU8(num_clamp(clipped_idct + mocomp_pixel, 0, 255));
+							}
+						}
+						break;
+					case DecodedDctBlock.Horiz:
+						var first_row = b.value;
+						idct_1d(first_row, idct_intermediate[0]);
+						for (var y_offset = 0; y_offset < ys; y_offset++) {
+							var _idcts = idct_intermediate[0]; // TODO idct_intermediate[0].iter().take(xs).enumerate()
+							for (var x_offset = 0; x_offset < xs; x_offset++) {
+								var idct = _idcts[x_offset];
+								let x = x_base * 8 + x_offset;
+								let y = y_base * 8 + y_offset;
+								let clipped_idct = num_clamp((asI16(idct * BASIS_TABLE[0][0] / 4.0 + num_signum(idct) * 0.5)), -256, 255);
+								let mocomp_pixel = asI16(output[x + (y * output_samples_per_line)]);
+								output[x + (y * output_samples_per_line)] = asU8(num_clamp((clipped_idct + mocomp_pixel), 0, 255));
+							}
+						}
+						break;
+					case DecodedDctBlock.Vert:
+						var first_col = b.value;
+						idct_1d(first_col, idct_intermediate[0]);
+						var _idcts = idct_intermediate[0]; // TODO idct_intermediate[0].iter().take(xs).enumerate()
+						for (var y_offset = 0; y_offset < ys; y_offset++) {
+							var idct = _idcts[y_offset];
+							for (var x_offset = 0; x_offset < xs; x_offset++) {
+								let x = x_base * 8 + x_offset;
+								let y = y_base * 8 + y_offset;
+								let clipped_idct = num_clamp((asI16(idct * BASIS_TABLE[0][0] / 4.0 + num_signum(idct) * 0.5)), -256, 255);
+								let mocomp_pixel = asI16(output[x + (y * output_samples_per_line)]);
+								output[x + (y * output_samples_per_line)] = asU8(num_clamp((clipped_idct + mocomp_pixel), 0, 255));
+							}
+						}
+						break;
+					case DecodedDctBlock.Full:
+						var block_data = b.value;
+						for (var row = 0; row < 8; row++) {
+							idct_1d(block_data[row], idct_output[row]);
+							for (var i = 0; i < idct_intermediate.length; i++) {
+								idct_intermediate[i][row] = idct_output[row][i];
+							}
+						}
+						for (var row = 0; row < 8; row++) {
+							idct_1d(idct_intermediate[row], idct_output[row]);
+						}
+						for (var x_offset = 0; x_offset < xs; x_offset++) {
+							var idct_row = idct_output[x_offset];
+							for (var y_offset = 0; y_offset < ys; y_offset++) {
+								var idct = idct_row[y_offset];
+								let x = x_base * 8 + x_offset;
+								let y = y_base * 8 + y_offset;
+								let clipped_idct = num_clamp((asI16(idct / 4.0 + num_signum(idct) * 0.5)), -256, 255);
+								let mocomp_pixel = asI16(output[x + (y * output_samples_per_line)]);
+								output[x + (y * output_samples_per_line)] = asU8(num_clamp((clipped_idct + mocomp_pixel), 0, 255));
+							}
+						}
+						break;
+				}
+			}
+		}
+	}
+
+	function predict_candidate(predictor_vectors, current_predictors, mb_per_line, index) {
+		let current_mb = predictor_vectors.length;
+		let col_index = current_mb % mb_per_line;
+		let mv1_pred = null;
+
+		switch(index) {
+			case 0:
+			case 2:
+				if (col_index == 0) {
+					mv1_pred = MotionVector.zero();
+				} else {
+					mv1_pred = predictor_vectors[current_mb - 1][index + 1];
+				}
+				break;
+			case 1:
+			case 3:
+				mv1_pred = current_predictors[index - 1];
+				break;
+			default:
+				throw new Error("unreachable");
+		}
+
+		/*
+		let mv1_pred = match index {
+				0 | 2 if col_index == 0 => MotionVector::zero(),
+				0 | 2 => predictor_vectors[current_mb - 1][index + 1],
+				1 | 3 => current_predictors[index - 1],
+				_ => unreachable!(),
+		};
+		*/
+
+		let line_index = Math.floor(current_mb / mb_per_line);
+		let last_line_mb = (saturatingSub(line_index, 1) * mb_per_line) + col_index;
+		let mv2_pred = null;
+		switch(index) {
+			case 0:
+			case 1:
+				if (line_index == 0) {
+					mv2_pred = mv1_pred;
+				} else {
+					var r = predictor_vectors[last_line_mb];
+					if (r) {
+						mv2_pred = r[index + 2];
+					} else {
+						mv2_pred = mv1_pred;
+					}
+				}
+				break;
+			case 2:
+			case 3:
+				mv2_pred = current_predictors[0];
+				break;
+			default:
+				throw new Error("unreachable");
+		}
+		let is_end_of_line = col_index == saturatingSub(mb_per_line, 1);
+		let mv3_pred = null;
+		switch(index) {
+			case 0:
+			case 1:
+				if (is_end_of_line) {
+					mv3_pred = MotionVector.zero();
+				} else {
+					if (line_index == 0) {
+						mv3_pred = mv1_pred;
+					} else {
+						var r = predictor_vectors[last_line_mb + 1];
+						if (r) {
+							mv3_pred = r[2];
+						} else {
+							mv3_pred = mv1_pred;
+						}
+					}
+				}
+				break;
+			case 2:
+			case 3:
+				mv3_pred = current_predictors[1];
+				break;
+			default:
+				throw new Error("unreachable");
+		}
+		return mv1_pred.median_of(mv2_pred, mv3_pred);
+	}
+
+	function halfpel_decode(current_picture, running_options, predictor, mvd, is_x) {
+		let range = HalfPel.STANDARD_RANGE;
+		let out = new HalfPel(asI16(mvd.n + predictor.n));
+		if (running_options.UNRESTRICTED_MOTION_VECTORS && !current_picture.as_header().has_plusptype) {
+			if (predictor.is_mv_within_range(HalfPel.STANDARD_RANGE)) {
+				return out;
+			} else {
+				range = HalfPel.EXTENDED_RANGE;
+			}
+		} else {
+			var rrh = current_picture.as_header().motion_vector_range;
+			if (rrh) {
+				rrh = rrh.type == MotionVectorRange.Extended;
+			}
+			if (running_options.UNRESTRICTED_MOTION_VECTORS && rrh) {
+				console.log(current_picture.format);
+			}
+		}
+		if (!out.is_mv_within_range(range)) {
+			out = new HalfPel(asI16(mvd.invert().n + predictor.n));
+		}
+		return out;
+	}
+
+	function mv_decode(current_picture, running_options, predictor, mvd) {
+		let mvx = mvd.n1;
+		let mvy = mvd.n2;
+		let cpx = predictor.n1;
+		let cpy = predictor.n2;
+		let out_x = halfpel_decode(current_picture, running_options, cpx, mvx, true);
+		let out_y = halfpel_decode(current_picture, running_options, cpy, mvy, false);
+		return new MotionVector(out_x, out_y);
+	}
+
 	const H263State = function(decoderOptions) {
 		this.decoderOptions = decoderOptions;
 		this.last_picture = null;
@@ -10581,7 +11423,7 @@ var AT_H263_Decoder = (function() {
 		return this.decoderOptions.sorensonSpark;
 	}
 	H263State.prototype.getLastPicture = function() {
-		if (this.last_picture === null) {
+		if (this.last_picture === null) { // self.last_picture.is_none()
 			return null;
 		} else {
 			return this.reference_states.get(this.last_picture);
@@ -10591,7 +11433,23 @@ var AT_H263_Decoder = (function() {
 		if (this.reference_picture === null) {
 			return null;
 		} else {
-			return this.reference_states.get(this.last_picture);
+			return this.reference_states.get(this.reference_picture);
+		}
+	}
+	function map_remove_entry(_, fg) {
+		return _.get(fg);
+	}
+	H263State.prototype.cleanup_buffers = function() {
+		var r1 = this.last_picture;
+		let last_picture = map_remove_entry(this.reference_states, r1);
+		let r2 = this.reference_picture;
+		let reference_picture = map_remove_entry(this.reference_states, r2);
+		this.reference_states = new Map();
+		if (last_picture) {
+			this.reference_states.set(r1, last_picture);
+		}
+		if (reference_picture) {
+			//this.reference_states.set(r2, reference_picture);
 		}
 	}
 	H263State.prototype.parsePicture = function(reader, previous_picture) {
@@ -10600,29 +11458,34 @@ var AT_H263_Decoder = (function() {
 	H263State.prototype.decodeNextPicture = function(reader) {
 		// with_transaction
 		let next_picture = this.parsePicture(reader, this.getLastPicture());
+		if (next_picture.picture_type.type != 1) {
+			//return;
+		}
 		var next_running_options = null;
 		if (next_picture.has_plusptype && next_picture.has_opptype) {
 			console.log("has_plusptype has_opptype");
 			next_running_options = next_picture.options;
-			return;
 		} else if (next_picture.has_plusptype) {
 			console.log("has_plusptype");
 			// (next_picture.options & !*OPPTYPE_OPTIONS) | (self.running_options & *OPPTYPE_OPTIONS)
 		} else {
 			next_running_options = next_picture.options;
-			console.log(next_picture);
-			return;
 		}
 		let format = null;
 		if (next_picture.format) {
 			format = next_picture.format;
-		} /*else if matches!(next_picture.picture_type, PictureTypeCode::IFrame) {
-			return Err(Error::PictureFormatMissing);
-		} else if let Some(ref_format) = self.get_last_picture().map(|rp| rp.format()) {
-			ref_format
+		} else if (next_picture.picture_type.type == PictureTypeCode.IFrame) {
+			throw new Error("PictureFormatMissing");
 		} else {
-			return Err(Error::PictureFormatMissing);
-		}*/
+			var ref_format = null;
+			var rfgh = this.getLastPicture();
+			if (rfgh !== null) {
+				ref_format = rfgh.format;
+			} else {
+				throw new Error("PictureFormatMissing");
+			}
+			format = ref_format;
+		}
 
 		let reference_picture = this.getReferencePicture();
 		let output_dimensions = format.intoWidthAndHeight();
@@ -10644,9 +11507,7 @@ var AT_H263_Decoder = (function() {
 			chroma_b_levels[i] = new DecodedDctBlock(DecodedDctBlock.Zero);
 		for (var i = 0; i < chroma_r_levels.length; i++) 
 			chroma_r_levels[i] = new DecodedDctBlock(DecodedDctBlock.Zero);
-		var count = 255;
-
-		while(count--) {
+		while(reader.bitAva() > 0) { // TODO
 			let mb;
 			try {
 				mb = decode_macroblock(reader, next_decoded_picture.as_header(), next_running_options);
@@ -10654,7 +11515,7 @@ var AT_H263_Decoder = (function() {
 				mb = e.message;
 			}
 			let pos = [
-				(macroblock_types.length % mb_per_line) * 16,
+				Math.floor(macroblock_types.length % mb_per_line) * 16,
 				Math.floor(macroblock_types.length / mb_per_line) * 16
 			];
 			let motion_vectors = [];
@@ -10662,34 +11523,64 @@ var AT_H263_Decoder = (function() {
 				motion_vectors.push(MotionVector.zero());
 			var mb_type = null;
 			var isStuffing = false;
-			if (is_macroblock_error(mb) && this.isSorenson()) {
-				var gob_res = null;
-				try {
-					gob_res = decode_gob(reader, this.decoderOptions);
-				} catch(e) {
-					gob_res = e.message;
-				}
-				if (is_gob_error(gob_res)) {
-					return;
+			if (typeof mb == "string") {
+				if (is_macroblock_error(mb)) {
+					if (!this.isSorenson()) {
+						var gob_res = null;
+						try {
+							gob_res = decode_gob(reader, this.decoderOptions);
+						} catch(e) {
+							gob_res = e.message;
+						}
+						if (is_gob_error(gob_res)) {
+							console.log("gob false");
+						} 
+					} else {
+						throw new Error(mb);
+					}
+				} else if (is_eof_error(mb)) {
+					break;
+				} else {
+					throw new Error(mb);
 				}
 			} else {
 				switch(mb.type) {
-					case Macroblock.Stuffing: 
-						console.log("Stuffing");
+					case Macroblock.Stuffing:
 						isStuffing = true;
 						break;
 					case Macroblock.Uncoded: 
-						console.log("Uncoded");
-						return;
+						if (next_decoded_picture.as_header().picture_type.type == PictureTypeCode.IFrame) {
+							throw new Error("UncodedIFrameBlocks");
+						}
+						mb_type = new MacroblockType(MacroblockType.Inter);
 						break;
 					case Macroblock.Coded: 
 						var res = mb.value;
-						let quantizer = asI8(in_force_quantizer) + ((res.d_quantizer === null) ? 0 : res.d_quantizer);
-						in_force_quantizer = asU8(Math.min(Math.max(quantizer, 1), 31));
+						let quantizer = asI8(asI8(in_force_quantizer) + ((res.d_quantizer === null) ? 0 : res.d_quantizer));
+						in_force_quantizer = asU8(num_clamp(quantizer, 1, 31));
 						if (res.mb_type.is_inter()) {
-							console.log("is_inter");
-							return;
+							let mv1 = res.motion_vector;
+							if (mv1 === null) 
+								mv1 = MotionVector.zero();
+							let mpred1 = predict_candidate(predictor_vectors.slice(macroblocks_after_gob), motion_vectors, mb_per_line, 0);
+							motion_vectors[0] = mv_decode(next_decoded_picture, next_running_options, mpred1, mv1);
+							var addl_motion_vectors = res.addl_motion_vectors;
+							if (addl_motion_vectors) {
+								let mpred2 = predict_candidate(predictor_vectors.slice(macroblocks_after_gob), motion_vectors, mb_per_line, 1);
+								motion_vectors[1] = mv_decode(next_decoded_picture, next_running_options, mpred2, addl_motion_vectors[0]);
+
+								let mpred3 = predict_candidate(predictor_vectors.slice(macroblocks_after_gob), motion_vectors, mb_per_line, 2);
+								motion_vectors[2] = mv_decode(next_decoded_picture, next_running_options, mpred3, addl_motion_vectors[1]);
+
+								let mpred4 = predict_candidate(predictor_vectors.slice(macroblocks_after_gob), motion_vectors, mb_per_line, 3);
+								motion_vectors[3] = mv_decode(next_decoded_picture, next_running_options, mpred4, addl_motion_vectors[2]);
+							} else {
+								motion_vectors[1] = motion_vectors[0];
+								motion_vectors[2] = motion_vectors[0];
+								motion_vectors[3] = motion_vectors[0];
+							};
 						}
+
 						let luma0 = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_luma[0]);
 						inverse_rle(luma0, luma_levels, pos, level_dimensions[0] / 8, in_force_quantizer);
 						
@@ -10707,15 +11598,39 @@ var AT_H263_Decoder = (function() {
 
 						let chroma_r = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_chroma_r);
 						inverse_rle(chroma_r, chroma_r_levels, [pos[0] / 2, pos[1] / 2], mb_per_line, in_force_quantizer);
-
+						
 						mb_type = res.mb_type;
 						break;
 				}
-				if (isStuffing) continue;  
+				if (isStuffing) continue;
 			}
 			predictor_vectors.push(motion_vectors);
 			macroblock_types.push(mb_type);  
 		}
+
+		while (predictor_vectors.length < MAX_L) {
+			predictor_vectors.push(MotionVector.zero());
+		}
+		while (macroblock_types.length < MAX_L) {
+			macroblock_types.push(new MacroblockType(MacroblockType.Inter));
+		}
+
+		gather(macroblock_types, reference_picture, predictor_vectors, mb_per_line, next_decoded_picture);
+		idct_channel(luma_levels, next_decoded_picture.as_luma_mut(), mb_per_line * 2, (output_dimensions[0]));
+		let chroma_samples_per_row = next_decoded_picture.chroma_samples_per_row;
+		idct_channel(chroma_b_levels, next_decoded_picture.as_chroma_b_mut(), mb_per_line, chroma_samples_per_row);
+		idct_channel(chroma_r_levels, next_decoded_picture.as_chroma_r_mut(), mb_per_line, chroma_samples_per_row);
+
+		if (next_decoded_picture.as_header().picture_type.type == PictureTypeCode.IFrame) {
+			this.reference_picture = null;
+		}
+		let this_tr = next_decoded_picture.as_header().temporal_reference;
+		this.last_picture = this_tr;
+		if (!next_decoded_picture.as_header().picture_type.is_disposable()) {
+			this.reference_picture = this_tr;
+		}
+		this.reference_states.set(this_tr, next_decoded_picture);
+		this.cleanup_buffers();
 	}
 
 	const H263Reader = function(source) {
@@ -10744,6 +11659,9 @@ var AT_H263_Decoder = (function() {
 				break;
 			let bytes_read = Math.floor(this.bitsRead / 8);
 			let bits_read = (this.bitsRead % 8);
+			if (bytes_read >= this.source.length) {
+				throw new Error("EndOfFile");
+			}
 			let byte = this.source[bytes_read];
 			accum <<= 1;
 			accum |= ((byte >> (7 - bits_read)) & 0x1);
@@ -10804,13 +11722,39 @@ var AT_H263_Decoder = (function() {
 			}
 		}
 	}
+	H263Reader.prototype.read_umv = function() {
+		let start = this.readBits(1);
+		if (start == 1) {
+			return HalfPel.from_unit(0);
+		}
+		let mantissa = 0;
+		let bulk = 1; 
+		while (bulk < 4096) {
+			var r = this.readBits(2);
+			switch(r) {
+				case 0b00: 
+					return HalfPel.from_unit(mantissa + bulk);
+				case 0b10: 
+					return HalfPel.from_unit(-(mantissa + bulk));
+				case 0b01: 
+					mantissa <<= 1;
+					bulk <<= 1;
+					break;
+				case 0b11: 
+					mantissa = mantissa << 1 | 1;
+					bulk <<= 1;
+					break;
+			}
+		}
+		throw new Error("InvalidMvd");
+	}
 	H263Reader.prototype.bitAva = function() {
 		return this.source.length - Math.floor(this.bitsRead / 8);
 	}
 	H263Reader.prototype.o = function() {}
 	H263Reader.prototype.rollback = function(checkpoint) {
 		if (checkpoint > (this.source.length * 8)) {
-				throw new Error("InternalDecoderError");
+			throw new Error("InternalDecoderError");
 		}
 		this.bitsRead = checkpoint;
 	}
@@ -10821,7 +11765,7 @@ var AT_H263_Decoder = (function() {
 			result = f(this);
 		} catch(e) {
 			this.rollback(checkpoint);
-			throw new Error(e);
+			throw e;
 		}
 		return result;
 	}
@@ -10833,16 +11777,18 @@ var AT_H263_Decoder = (function() {
 			if (result === null) this.rollback(checkpoint);
 		} catch(e) {
 			this.rollback(checkpoint);
-			throw new Error(e);
+			throw e;
 		}
 		return result;
 	}
+
 	H263Reader.prototype.withLookahead = function(f) {
 		var checkpoint = this.checkpoint();
 		let result = f(this);
 		this.rollback(checkpoint);
 		return result;
 	}
+
 	return {
 		H263Reader,
 		H263State,
@@ -10867,6 +11813,16 @@ var AT_VP6_Decoder = (function() {
 		, INT_MAX = 2147483647
 		, INT64_MAX = Number.MAX_SAFE_INTEGER
 		, CONFIG_MEMORY_POISONING = 0;
+	//class VP6Error extends Error {
+	//	constructor(message) {
+	//		super(message);
+	//		this.name = 'VP6Error';
+	//	}
+	//}
+	function at_vp6_error() {
+		console.log("ERROR", ...arguments);
+		//throw new VP6Error(message);
+	}
 	function memcpy(_, e, t) {
 		for (let r = 0; r < t; r++)
 			_[r] = e[r]
@@ -11012,7 +11968,7 @@ var AT_VP6_Decoder = (function() {
 		case AV_LOG_PANIC:
 		case AV_LOG_ERROR:
 		default:
-			n = console.error
+			n = at_vp6_error
 		}
 		n(t, ...r)
 	}
@@ -11487,7 +12443,7 @@ var AT_VP6_Decoder = (function() {
 			this.offset = undefined;
 		}
 	}
-	function bytestream_get_be24(_) {
+	function bytestream_get_be24(_) { // bug
 		return ((_[0] << 8) + _[1] << 8) + _[2]
 	}
 	function bytestream_get_be16(_) {
@@ -11914,7 +12870,7 @@ var AT_VP6_Decoder = (function() {
 			e.height = FFMAX(_.height, AV_CEIL_RSHIFT(_.coded_height, _.lowres)),
 			a = 0),
 			e.data[0] || e.data[1] || e.data[2] || e.data[3])
-				return console.error("frame.data:", e.data),
+				return at_vp6_error("frame.data:", e.data),
 				av_log(_, AV_LOG_ERROR, "pic.data[*]!=NULL in get_buffer_internal\n"),
 				n = AVERROR(EINVAL),
 				o(),
@@ -11980,52 +12936,52 @@ var AT_VP6_Decoder = (function() {
 		_.avg_h264_chroma_pixels_tab[3] = avg_h264_chroma_mc1_8_c)
 	}
 	function put_h264_chroma_mc8_16_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc8(_, e, t, r, n, a, o, f, op_put_h264chroma, 16)
+		h264_chroma_mc8(_, e, t, r, n, a, o, f, op_put_h264chroma, 16)
 	}
 	function put_h264_chroma_mc4_16_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc4(_, e, t, r, n, a, o, f, op_put_h264chroma, 16)
+		h264_chroma_mc4(_, e, t, r, n, a, o, f, op_put_h264chroma, 16)
 	}
 	function put_h264_chroma_mc2_16_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc2(_, e, t, r, n, a, o, f, op_put_h264chroma, 16)
+		h264_chroma_mc2(_, e, t, r, n, a, o, f, op_put_h264chroma, 16)
 	}
 	function put_h264_chroma_mc1_16_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc1(_, e, t, r, n, a, o, f, op_put_h264chroma, 16)
+		h264_chroma_mc1(_, e, t, r, n, a, o, f, op_put_h264chroma, 16)
 	}
 	function avg_h264_chroma_mc8_16_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc8(_, e, t, r, n, a, o, f, op_avg_h264chroma, 16)
+		h264_chroma_mc8(_, e, t, r, n, a, o, f, op_avg_h264chroma, 16)
 	}
 	function avg_h264_chroma_mc4_16_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc4(_, e, t, r, n, a, o, f, op_avg_h264chroma, 16)
+		h264_chroma_mc4(_, e, t, r, n, a, o, f, op_avg_h264chroma, 16)
 	}
 	function avg_h264_chroma_mc2_16_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc2(_, e, t, r, n, a, o, f, op_avg_h264chroma, 16)
+		h264_chroma_mc2(_, e, t, r, n, a, o, f, op_avg_h264chroma, 16)
 	}
 	function avg_h264_chroma_mc1_16_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc1(_, e, t, r, n, a, o, f, op_avg_h264chroma, 16)
+		h264_chroma_mc1(_, e, t, r, n, a, o, f, op_avg_h264chroma, 16)
 	}
 	function put_h264_chroma_mc8_8_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc8(_, e, t, r, n, a, o, f, op_put_h264chroma, 8)
+		h264_chroma_mc8(_, e, t, r, n, a, o, f, op_put_h264chroma, 8)
 	}
 	function put_h264_chroma_mc4_8_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc4(_, e, t, r, n, a, o, f, op_put_h264chroma, 8)
+		h264_chroma_mc4(_, e, t, r, n, a, o, f, op_put_h264chroma, 8)
 	}
 	function put_h264_chroma_mc2_8_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc2(_, e, t, r, n, a, o, f, op_put_h264chroma, 8)
+		h264_chroma_mc2(_, e, t, r, n, a, o, f, op_put_h264chroma, 8)
 	}
 	function put_h264_chroma_mc1_8_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc2(_, e, t, r, n, a, o, f, op_put_h264chroma, 8)
+		h264_chroma_mc2(_, e, t, r, n, a, o, f, op_put_h264chroma, 8)
 	}
 	function avg_h264_chroma_mc8_8_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc8(_, e, t, r, n, a, o, f, op_avg_h264chroma, 8)
+		h264_chroma_mc8(_, e, t, r, n, a, o, f, op_avg_h264chroma, 8)
 	}
 	function avg_h264_chroma_mc4_8_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc4(_, e, t, r, n, a, o, f, op_avg_h264chroma, 8)
+		h264_chroma_mc4(_, e, t, r, n, a, o, f, op_avg_h264chroma, 8)
 	}
 	function avg_h264_chroma_mc2_8_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc2(_, e, t, r, n, a, o, f, op_avg_h264chroma, 8)
+		h264_chroma_mc2(_, e, t, r, n, a, o, f, op_avg_h264chroma, 8)
 	}
 	function avg_h264_chroma_mc1_8_c(_, e, t, r, n, a, o, f) {
-		//h264_chroma_mc1(_, e, t, r, n, a, o, f, op_avg_h264chroma, 8)
+		h264_chroma_mc1(_, e, t, r, n, a, o, f, op_avg_h264chroma, 8)
 	}
 	function h264_chroma_mc1(_, e, t, r, n, a, o, f, i, c) {
 		let A = _
@@ -12139,41 +13095,42 @@ var AT_VP6_Decoder = (function() {
 				r += n
 	}
 	function h264_chroma_mc8(_, e, t, r, n, a, o, f, i, c) {
-		let A = _
-			, l = t;
-		const p = (8 - o) * (8 - f)
-			, s = o * (8 - f)
-			, I = (8 - o) * f
-			, d = o * f;
-		let u;
-		if (n >>= c / 8 - 1,
-		av_assert2(o < 8 && f < 8 && o >= 0 && f >= 0),
-		d)
-			for (u = 0; u < a; u++)
-				i(A, e, l, r, 8, (function(_, e) {
-					return p * _[e] + s * _[e + 1] + I * _[n + e] + d * _[n + e + 1]
-				}
-				)),
-				e += n,
-				r += n;
-		else if (s + I) {
-			const _ = s + I
-				, t = I ? n : 1;
-			for (u = 0; u < a; u++)
-				i(A, e, l, r, 8, (function(e, r) {
-					return p * e[r] + _ * e[t + r]
-				}
-				)),
-				e += n,
-				r += n
-		} else
-			for (u = 0; u < a; u++)
-				i(A, e, l, r, 8, (function(_, e) {
-					return p * _[e]
-				}
-				)),
-				e += n,
-				r += n
+		// but not vaid vp6
+		//let A = _
+		//	, l = t;
+		//const p = (8 - o) * (8 - f)
+		//	, s = o * (8 - f)
+		//	, I = (8 - o) * f
+		//	, d = o * f;
+		//let u;
+		//if (n >>= c / 8 - 1,
+		//av_assert2(o < 8 && f < 8 && o >= 0 && f >= 0),
+		//d)
+		//	for (u = 0; u < a; u++)
+		//		i(A, e, l, r, 8, (function(_, e) {
+		//			return p * _[e] + s * _[e + 1] + I * _[n + e] + d * _[n + e + 1]
+		//		}
+		//		)),
+		//		e += n,
+		//		r += n;
+		//else if (s + I) {
+		//	const _ = s + I
+		//		, t = I ? n : 1;
+		//	for (u = 0; u < a; u++)
+		//		i(A, e, l, r, 8, (function(e, r) {
+		//			return p * e[r] + _ * e[t + r]
+		//		}
+		//		)),
+		//		e += n,
+		//		r += n
+		//} else
+		//	for (u = 0; u < a; u++)
+		//		i(A, e, l, r, 8, (function(_, e) {
+		//			return p * _[e]
+		//		}
+		//		)),
+		//		e += n,
+		//		r += n
 	}
 	function op_avg_h264chroma(_, e, t, r, n, a) {
 		for (let o = 0; o < n; o++) {
@@ -12798,27 +13755,27 @@ var AT_VP6_Decoder = (function() {
 			
 			poff += line_size;                                              
 			for (i = 0; i < h; i += 2) {                                    
-			let a = AV_RN32(pixels, poff);      // uint32_t
-			let b = AV_RN32(pixels, poff + 1);  // uint32_t
-			l1 = (a & 0x03030303) +                                     
-			(b & 0x03030303);                                      
-			h1 = ((a & 0xFCFCFCFC) >> 2) +                              
-			((b & 0xFCFCFCFC) >> 2);                               
-			OP(_CastUI32A(block, boff), 0, h0 + h1 +                    
-			(((l0 + l1) >> 2) & 0x0F0F0F0F));                        
-			poff += line_size;                                          
-			boff += line_size;                                          
-			a  = AV_RN32(pixels, 0);                                    
-			b  = AV_RN32(pixels, 1);                                    
-			l0 = (a & 0x03030303) +                                     
-			(b & 0x03030303) +                                     
-			0x01010101;                                       
-			h0 = ((a & 0xFCFCFCFC) >> 2) +                              
-			((b & 0xFCFCFCFC) >> 2);                               
-			OP(_CastUI32A(block, boff), 0, h0 + h1 +                    
-			(((l0 + l1) >> 2) & 0x0F0F0F0F));                        
-			poff += line_size;                                          
-			boff += line_size;                                          
+				let a = AV_RN32(pixels, poff);      // uint32_t
+				let b = AV_RN32(pixels, poff + 1);  // uint32_t
+				l1 = (a & 0x03030303) +                                     
+				(b & 0x03030303);                                      
+				h1 = ((a & 0xFCFCFCFC) >> 2) +                              
+				((b & 0xFCFCFCFC) >> 2);                               
+				OP(_CastUI32A(block, boff), 0, h0 + h1 +                    
+				(((l0 + l1) >> 2) & 0x0F0F0F0F));                        
+				poff += line_size;                                          
+				boff += line_size;                                          
+				a  = AV_RN32(pixels, 0);                                    
+				b  = AV_RN32(pixels, 1);                                    
+				l0 = (a & 0x03030303) +                                     
+				(b & 0x03030303) +                                     
+				0x01010101;                                       
+				h0 = ((a & 0xFCFCFCFC) >> 2) +                              
+				((b & 0xFCFCFCFC) >> 2);                               
+				OP(_CastUI32A(block, boff), 0, h0 + h1 +                    
+				(((l0 + l1) >> 2) & 0x0F0F0F0F));                        
+				poff += line_size;                                          
+				boff += line_size;                                          
 			}                                                               
 			poff += 4 - line_size * (h + 1);                                
 			boff += 4 - line_size * h;                                      
@@ -13703,7 +14660,7 @@ var AT_VP6_Decoder = (function() {
 		if (o.parse_coeff_models(o)) {
 			if ((f.key_frame || o.golden_frame) && (av_frame_unref(o.frames[VP56_FRAME_GOLDEN]),
 			(u = av_frame_ref(o.frames[VP56_FRAME_GOLDEN], f)) < 0))
-				return console.error("av_frame_ref ret:", ret),
+				return at_vp6_error("av_frame_ref ret:", ret),
 				u;
 			av_frame_unref(o.frames[VP56_FRAME_PREVIOUS]);
 			let _ = o.frames[VP56_FRAME_CURRENT];
@@ -13955,12 +14912,12 @@ var AT_VP6_Decoder = (function() {
 		_.frames[VP56_FRAME_CURRENT].key_frame) {
 			if (r = e[1] >> 3,
 			r > 8)
-				return console.error("sub_version > 8", r),
+				return at_vp6_error("sub_version > 8", r),
 				AVERROR_INVALIDDATA;
 			if (_.filter_header = 6 & e[1],
 			1 & e[1])
 				return avpriv_report_missing_feature(_.avctx, "Interlacing"),
-				console.error("Interlacing"),
+				at_vp6_error("Interlacing"),
 				AVERROR_PATCHWELCOME;
 			if (!p && _.filter_header || (c = AV_RB16(e, 2) - 2,
 			console.debug("coeff_offset, buf:", c, e),
@@ -14319,7 +15276,7 @@ var AT_VP6_Decoder = (function() {
 			t && (n.alpha_context = new VP56Context,
 			n.alpha_context.codec = r);
 			let a = vp6_decode_init(_);
-			return a && console.error("vp6_decode_init ret:" + a),
+			return a && at_vp6_error("vp6_decode_init ret:" + a),
 			a
 		}
 		decodeVideoFrameArray(_) {
@@ -14355,7 +15312,7 @@ var AT_VP6_Decoder = (function() {
 			let n = ff_vp56_decode_frame(_, r, {
 				got_frame: null
 			}, t);
-			return n < 0 && console.error("ff_vp56_decode_frame ret:" + n),
+			return n < 0 && at_vp6_error("ff_vp56_decode_frame ret:" + n),
 			r
 		}
 		AVFrame2ImageData(_, e) {
@@ -14363,14 +15320,7 @@ var AT_VP6_Decoder = (function() {
 			e && ([a] = e.data);
 			let[o,f] = [_.width, _.height];
 			if (!o || !f) {
-				let _ = new ImageData(this.width,this.height);
-				for (let t = 0; t < _.data.length; t += 4) {
-					_.data[t] = 255;
-					_.data[t + 1] = 0;
-					_.data[t + 2] = 0;
-					_.data[t + 3] = 255;
-				};
-				return _
+				return null;
 			}
 			this.width || (this.width = o),
 			this.height || (this.height = f);
@@ -14401,6 +15351,7 @@ var AT_VP6_Decoder = (function() {
 		this.width = width;
 		this.height = height;
 		this.withAlpha = withAlpha;
+		this.lastFrame = null;
 		this.reset();
 	}
 	VP6Interval.prototype.reset = function() {
@@ -14412,7 +15363,12 @@ var AT_VP6_Decoder = (function() {
 		var e = this.decoder.decodeVideoFrame({
 			data: data
 		});
-		return e.imageData.data;
+		var imageData = e.imageData;
+		if (!imageData) 
+			return this.lastFrame;
+		var idata = imageData.data;
+		this.lastFrame = idata;
+		return idata;
 	}
 	return {
 		VP6Interval
