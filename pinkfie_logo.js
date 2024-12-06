@@ -9,11 +9,11 @@
     md5: "150c3b471ecfce61d3733107f1543428"
   });
   _pinkfieSampleSWF.push({
-    name: "On2 VP6 - testcard (Unimplemented)",
+    name: "NihAV VP6 - testcard",
     md5: "2fbad50a333e448cfa010eb7bd1c538b"
   });
   _pinkfieSampleSWF.push({
-    name: "On2 VP6 with alpha - testcard (Unimplemented)",
+    name: "NihAV VP6 with alpha - testcard (UNFINISHED)",
     md5: "fdc5c9e530f3ce9de2b5e541deb2b08f"
   });
   _pinkfieSampleSWF.push({
@@ -130,54 +130,54 @@
     md5: "99738213213c5254cb4c9d4ab63e7359"
   });
 
-  _pinkfieSampleSWF.push({
-    name: "607393_A_Way_Past_20%25_Cooler_Chri.swf",
-    md5: "ec3ebaed9e0407d310b31080d9c7bf37"
-  });
+  //_pinkfieSampleSWF.push({
+  //  name: "607393_A_Way_Past_20%25_Cooler_Chri.swf",
+  //  md5: "ec3ebaed9e0407d310b31080d9c7bf37"
+  //});
 
   _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 595767_hank12_girlfriend-fl",
-    md5: "11cdc3e0542bf664fa48a85a50c329f8_aad47632815367b2676f994c6c3dcd67"
-  });
-  _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 596116_hank13_fashion-fl",
-    md5: "3bf1dad49e2e7e754d6e6b3af5431c2a_3771a9009e3655c59d09839b2d569991"
-  });
-  _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 594552_hank08_popcorn-fl",
-    md5: "e0881d3f6cc62fbe7a5aadfbcd7086cf_ec85d3c8cc13fb7b84f01fa3017a8aa0"
-  });
-  _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 594095_ask06_coffee-NG",
+    name: "NihAV VP6 - 594095_ask06_coffee-NG",
     md5: "85712a331a6c78d9a05e29e45120e959"
   });
   _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 594461_ask07_divorce-fl",
-    md5: "ef2c6dc0ac148d917186b2ca59d61670"
-  });
-  _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 595535_ask10_cats-FL",
-    md5: "4f2da27d4d4245cf6aa51f23ac5a3283"
-  });
-  _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 594899_ask09_slip-FL",
-    md5: "841adfd3b6a662382cc5b5460023694c"
-  });
-  _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 595663_hank11_vegetables-FL",
-    md5: "64e5d259f08feb0a9bd810f6624938ce"
-  });
-  _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 583716_outtakes1",
-    md5: "b70399024702d254ddd750c58f1b2b1b"
-  });
-  _pinkfieSampleSWF.push({
-    name: "On2 VP6",
+    name: "NihAV VP6 - 594408_ask04_bullying-fl",
     md5: "c0883af0a796e333f4b502e5c6d08406_1ff6b34cbf4ff1c10b9574c3b7408e79"
   });
   _pinkfieSampleSWF.push({
-    name: "On2 VP6_",
+    name: "NihAV VP6 - 594409_ask05_easter-fl",
     md5: "9149444216ec5b02c8548a6f1f60be1f_c2e25bdeeb5c3df16bc65e2713b552c5"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 594461_ask07_divorce-fl",
+    md5: "ef2c6dc0ac148d917186b2ca59d61670"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 594552_hank08_popcorn-fl",
+    md5: "e0881d3f6cc62fbe7a5aadfbcd7086cf_ec85d3c8cc13fb7b84f01fa3017a8aa0"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 594899_ask09_slip-FL",
+    md5: "841adfd3b6a662382cc5b5460023694c"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 595535_ask10_cats-FL",
+    md5: "4f2da27d4d4245cf6aa51f23ac5a3283"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 595663_hank11_vegetables-FL",
+    md5: "64e5d259f08feb0a9bd810f6624938ce"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 595767_hank12_girlfriend-fl",
+    md5: "11cdc3e0542bf664fa48a85a50c329f8_aad47632815367b2676f994c6c3dcd67"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 596116_hank13_fashion-fl",
+    md5: "3bf1dad49e2e7e754d6e6b3af5431c2a_3771a9009e3655c59d09839b2d569991"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 583716_outtakes1",
+    md5: "b70399024702d254ddd750c58f1b2b1b"
   });
 
   _pinkfieSampleSWF.push({
@@ -204,11 +204,11 @@
     md5: "f12b03fced1f0a01cefd58eadc33c174_849b283802a5d765b6bcc30d244554f5"
   });
   _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 540772_gta3",
+    name: "NihAV VP6 - 540772_gta3",
     md5: "6c869cb73f27d39871c459ddb466cdbd"
   });
   _pinkfieSampleSWF.push({
-    name: "On2 VP6 - 528599_video05",
+    name: "NihAV VP6 - 528599_video05",
     md5: "3735a836f4a7f59fd5029c6ada49b690_c6b7b46555fbdef11bae64ba624f6ce8"
   });
   _pinkfieSampleSWF.push({
@@ -232,8 +232,12 @@
     md5: "79bde1149227e618e82a5fb269c5458d"
   });
   _pinkfieSampleSWF.push({
-    name: "On2 VP6 - deviantart SWF",
+    name: "NihAV VP6",
     md5: "4bdc1165ffa2a1baab9229e5000d2e46_657ba36e1fa42d4bfdf11d6a6ab9b1da"
   });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 532624_SnowLady",
+    md5: "c502323964930a8b5a3b25665e25c74b"
+  }); 
   window.pinkfieSampleSWF = _pinkfieSampleSWF;
 }());

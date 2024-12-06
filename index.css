@@ -38,6 +38,7 @@ a {
 .dark {
     background-color:#010;
     color: #aea;
+    text-shadow: 0px 0px 5px rgba(255, 255, 255, 0.25);
 }
 .dark .app {
     color: #aea;

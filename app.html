@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>PinkFie</title>
+		<link rel="stylesheet" type="text/css" href="pinkfie.css">
+		<style type="text/css">
+            body {
+				font-family: monospace;
+				margin: 0;
+				overflow: hidden;
+                background-color: #000;
+                color: #fff;
+            }
+			#loadedegfdg {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				font-size: 40px;
+			}
+			#pkfcontrols {
+				background-color: rgb(92, 206, 92);
+				height: 30px;
+				overflow: hidden;
+			}
+			#pkfcontrols > * {
+				float: left;
+				padding: 4px;
+				margin: 0;
+			}
+			#pkfcontrols a {
+				margin: 3px;
+                background-color: #3f7439;
+				color: #ffffff;
+				border-radius: 16px;
+				text-decoration-line: none;
+			}
+			#pkfcontrols a:hover {
+                background-color: #8bff7e;
+				color: #000000;
+			}
+			.pinkfie-root {
+				margin: 0;
+			}
+		</style>
+	</head>
+	<body id="drop_zone">
+		<div id="pinkswf"></div>
+        <p id="loadedegfdg"></p>
+		<script src="common.js"></script>
+		<script src="pinkfie.js"></script>
+		<script>
+			var player = PinkFie.createPlayer();
+			window.player = player;
+			var playerArea = document.getElementById('pinkswf');
+			playerArea.appendChild(player.root);
+			function _resize_() {
+				player.resize(window.innerWidth, window.innerHeight);
+			}
+			window.addEventListener("resize", _resize_);
+			_resize_();
+			function loadSwfFile(file) {
+				document.title = (file.name || "") + " - PinkFie";
+				player.loadSwfFromFile(file);
+			}
+			function loadSwfURL(url) {
+				player.loadSwfFromURL(url);
+			}
+			player.setOptions(Common.playerOptions);
+			player.setOptions({
+				autoplay: false
+			});
+			function dropHandler(ev) {
+				ev.preventDefault();
+				if (ev.dataTransfer.items) {
+					[...ev.dataTransfer.items].forEach((item, i) => {
+					if (item.kind === 'file') {
+						const file = item.getAsFile();
+						loadSwfFile(file);
+					}
+					});
+				}
+			}
+			function dragOverHandler(ev) {
+				ev.preventDefault();
+			}
+			window.ondrop = dropHandler;
+			window.ondragover = dragOverHandler;
+			if (Common.swfUrl) {
+				loadSwfURL(Common.swfUrl);
+			} else {
+				loadSwfURL(["4081f087eb3e51d2a5eb7517f1614da9"]);       
+			}
+		</script>
+	</body>
+</html>

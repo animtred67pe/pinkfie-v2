@@ -58,7 +58,7 @@
 		  <a class="switch-theme">switch theme</a>
 		</div>
         <div class="app">
-			<h1>PinkFie<span class="version">v2.1.1</span></h1>
+			<h1>PinkFie<span class="version">v2.1.2</span></h1>
 			<p title="Feedback is welcome! Please report any bugs">The Flash Player emulator in Javascript, is still in development.</p>
 			<div style="position: relative;">
 				<a id="loadswffile">Open .swf</a>
@@ -77,9 +77,9 @@
 				<ul>
 					<li><a class="dropdown">SWF Examples<select value="" id="sampleSWFpkf"><option value="" style="display: none;"></option></select></a></li>
 					<li><a href="demo.html">Player development</a></li>
+					<li><a href="app.html">app.html</a></li>
 					<li><a href="test.html">Overview SWF</a></li>
 					<li><a href="te.html">SWF Reader</a></li>
-					<!--<li><a href="let_s_snowdrop.html">Let's Snowdrop?</a></li>-->
 					<li><a href="pkf-rs-player.html">Player written in Rust [Beta]</a></li>
 					<li><a id="downloadoldpinkfie">Download PinkFie tiny versions</a></li>
 					<li><a href="credits.html">credits</a></li>
@@ -145,6 +145,24 @@
 			player.setOptions(Common.playerOptions);
 
 			if (!Common.autoplay) player.setOptions({ autoplay: false });
+				
+			function dropHandler(ev) {
+				ev.preventDefault();
+				if (ev.dataTransfer.items) {
+					[...ev.dataTransfer.items].forEach((item, i) => {
+					if (item.kind === 'file') {
+						const file = item.getAsFile();
+						loadSwfFile(file);
+					}
+					});
+				}
+			}
+			function dragOverHandler(ev) {
+				ev.preventDefault();
+			}
+
+			window.ondrop = dropHandler;
+			window.ondragover = dragOverHandler;
 			
 			fvolumeff.addEventListener('input', function (e) {
 				player.setOptions({
