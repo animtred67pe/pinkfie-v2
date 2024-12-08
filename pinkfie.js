@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript
  * 
- * v2.1.2 (2024-12-6)
+ * v2.1.3 (2024-12-7)
  * 
  * Made in Peru
  * 
@@ -4308,61 +4308,24 @@ var PinkFie = (function() {
 	DisplayObject.prototype.render = function (context) {
 		renderBase.call(this, context);
 	};
-	DisplayObject.prototype.debugRenderBounds = function(
-		matrix,
-		colorTransform,
-		tags
-	) {
+	DisplayObject.prototype.debugRenderBounds = function(matrix, colorTransform, tags) {
 		var rMatrix = multiplicationMatrix(matrix, this.matrix());
-		var rColorTransform = multiplicationColor(
-			colorTransform,
-			this.colorTransform()
-		);
+		var rColorTransform = multiplicationColor(colorTransform, this.colorTransform());
 		var bounds = this.selfBounds();
 		var matrixBounds = boundsMatrix(bounds, rMatrix);
-		tags.push([
-			4,
-			this.displayType,
-			this._debug_colorDisplayType[0],
-			this._debug_colorDisplayType[1],
-			this._debug_colorDisplayType[2],
-		]);
-		tags.push([
-			3,
-			[
-				+rColorTransform[0].toFixed(3),
-				+rColorTransform[1].toFixed(3),
-				+rColorTransform[2].toFixed(3),
-				+rColorTransform[3].toFixed(3),
-				+rColorTransform[4].toFixed(3),
-				+rColorTransform[5].toFixed(3),
-				+rColorTransform[6].toFixed(3),
-				+rColorTransform[7].toFixed(3),
-			],
-		]);
+		tags.push([4, this.displayType, this._debug_colorDisplayType[0], this._debug_colorDisplayType[1], this._debug_colorDisplayType[2]]);
+		tags.push([3, [+rColorTransform[0].toFixed(3), +rColorTransform[1].toFixed(3), +rColorTransform[2].toFixed(3), +rColorTransform[3].toFixed(3), +rColorTransform[4].toFixed(3), +rColorTransform[5].toFixed(3), +rColorTransform[6].toFixed(3), +rColorTransform[7].toFixed(3)]]);
 		var g1 = generateMatrix([bounds.xMin, bounds.yMin], rMatrix);
 		var g2 = generateMatrix([bounds.xMax, bounds.yMin], rMatrix);
 		var g3 = generateMatrix([bounds.xMax, bounds.yMax], rMatrix);
 		var g4 = generateMatrix([bounds.xMin, bounds.yMax], rMatrix);
-		tags.push([
-			0,
-			g1[0] | 0,
-			g1[1] | 0,
-			g2[0] | 0,
-			g2[1] | 0,
-			g3[0] | 0,
-			g3[1] | 0,
-			g4[0] | 0,
-			g4[1] | 0,
-		]);
-		tags.push([
-			1,
-			matrixBounds.xMin | 0,
-			matrixBounds.yMin | 0,
-			matrixBounds.xMax | 0,
-			matrixBounds.yMax | 0,
-		]);
+		tags.push([0, g1[0] | 0, g1[1] | 0, g2[0] | 0, g2[1] | 0, g3[0] | 0, g3[1] | 0, g4[0] | 0, g4[1] | 0]);
+		tags.push([1, matrixBounds.xMin | 0, matrixBounds.yMin | 0, matrixBounds.xMax | 0, matrixBounds.yMax | 0]);
 		tags.push([2, matrixBounds.xMin | 0, matrixBounds.yMin | 0]);
+		if (this instanceof DisplayVideoStream) {
+			tags.push([4, this.getDecoderType() + ": " + (this.decoded_frame ? this.decoded_frame[0] : "?"), 0, 232, 0]);
+			tags.push([2, (matrixBounds.xMin + 2) | 0, (matrixBounds.yMin + 22) | 0]);
+		}
 	};
 	DisplayObject.prototype.renderSelf = function () {};
 	DisplayObject.prototype.enterFrame = function () {};
@@ -5266,6 +5229,27 @@ var PinkFie = (function() {
 	DisplayVideoStream.prototype.setRatio = function (ratio) {
 		this._ratio = ratio;
 	};
+	DisplayVideoStream.prototype.getDecoderType = function () {
+		if (this.source) {
+			if (this.source.type == "swf") {
+				if (this.stream.isInstantiated && this.stream.result) {
+					var decoder = this.stream.result.decoder;
+					if (decoder) {
+						if (decoder instanceof H263Decoder) {
+							return "H.263";
+						} else if (decoder instanceof ScreenVideoDecoder) {
+							return "Screen Video";
+						} else if (decoder instanceof VP6Decoder) {
+							return "Vp6";
+						} else {
+							return "?";
+						}
+					}
+				}
+			}
+		}
+		return "";
+	};
 	DisplayVideoStream.prototype.seek = function (context, frame_id) {
 		if (!this.stream.isInstantiated) {
 			this.stream.result = frame_id;
@@ -5886,6 +5870,9 @@ var PinkFie = (function() {
 				case 15:
 					staticData.timelineTags.push([3, reader.parseStartSound(1)]);
 					break;
+				case 9:
+					staticData.timelineTags.push([4, reader.rgb()]);
+					break;
 				case 39:
 					return this.defineSprite(context, reader, tagLength, chunkLimit);
 			}
@@ -6007,6 +5994,8 @@ var PinkFie = (function() {
 					break;
 				case 3:
 					if (runSounds) this.startSound1(context, rTag[1]);
+					break;
+				case 4:
 					break;
 				case 5:
 					if (runSounds) this.soundStreamBlock(context, rTag[1]);
@@ -7072,6 +7061,48 @@ var PinkFie = (function() {
 		return new SoundStream(buffer, streamInfo);
 	};
 
+	const Bitmap = function(width, height, format, data) {
+		this.width = width;
+		this.height = height;
+		this.format = format;
+		this.data = data;
+	}
+	Bitmap.prototype.toRGBA = function() {
+		var width = this.width;
+		var height = this.height;
+		switch (this.format) {
+			case "yuv420p":
+			case "yuva420p":
+				var isAlpha = this.format == "yuva420p";
+				var yuv = this.data;
+				var data = new Uint8Array((width * height) * 4);
+				var yOffset = 0;
+				var uOffset = width * height;
+				var vOffset = uOffset + uOffset / 4;
+				var aOffset = uOffset + (uOffset / 4) + (uOffset / 4);
+				for (var h = 0; h < height; h++) {
+					for (var w = 0; w < width; w++) {
+						var ypos = w + h * width + yOffset;
+						var upos = (w >> 1) + (h >> 1) * width / 2 + uOffset;
+						var vpos = (w >> 1) + (h >> 1) * width / 2 + vOffset;
+						var Y = yuv[ypos] - 16;
+						var U = yuv[upos] - 128;
+						var V = yuv[vpos] - 128;
+						var R = (1.164 * Y + 1.596 * V);
+						var G = (1.164 * Y - 0.813 * V - 0.391 * U);
+						var B = (1.164 * Y + 2.018 * U);
+						var outputData_pos = w * 4 + width * h * 4;
+						data[0 + outputData_pos] = Math.max(Math.min(R, 255), 0);
+						data[1 + outputData_pos] = Math.max(Math.min(G, 255), 0);
+						data[2 + outputData_pos] = Math.max(Math.min(B, 255), 0);
+						data[3 + outputData_pos] = isAlpha ? yuv[w + h * width + aOffset] : 255;
+					}
+				}
+				this.data = data;
+				break;
+		}
+	}
+
 	const TransformStack = function () {
 		this.stackMt = [[1, 0, 0, 1, 0, 0]];
 		this.stackCT = [[1, 1, 1, 1, 0, 0, 0, 0]];
@@ -7627,34 +7658,7 @@ var PinkFie = (function() {
 		yuv.set(y, 0);
 		yuv.set(b, y.length);
 		yuv.set(r, y.length + b.length);
-		var data = new Uint8Array((width * height) * 4);
-		var yOffset = 0;
-		var uOffset = width * height;
-		var vOffset = width * height + (width * height) / 4;
-		for (var h = 0; h < height; h++) {
-			for (var w = 0; w < width; w++) {
-				var ypos = w + h * width + yOffset;
-				var upos = (w >> 1) + (h >> 1) * width / 2 + uOffset;
-				var vpos = (w >> 1) + (h >> 1) * width / 2 + vOffset;
-				var Y = yuv[ypos] - 16;
-				var U = yuv[upos] - 128;
-				var V = yuv[vpos] - 128;
-				var R = (1.164 * Y + 1.596 * V);
-				var G = (1.164 * Y - 0.813 * V - 0.391 * U);
-				var B = (1.164 * Y + 2.018 * U);
-				var outputData_pos = w * 4 + width * h * 4;
-				data[0 + outputData_pos] = Math.max(Math.min(R, 255), 0);
-				data[1 + outputData_pos] = Math.max(Math.min(G, 255), 0);
-				data[2 + outputData_pos] = Math.max(Math.min(B, 255), 0);
-				data[3 + outputData_pos] = 255;
-			}
-		}
-		return {
-			width,
-			height,
-			data,
-			type: "rgba"
-		}
+		return new Bitmap(width, height, "yuv420p", yuv);
 	};
 
 	const ByteReader = function(data) {
@@ -7744,13 +7748,23 @@ var PinkFie = (function() {
 		}
 		if (is_intra != isKeyframe) 
 			throw new Error("Not all blocks were updated by a supposed keyframe");
-		return {
-			width: w,
-			height: h,
-			type: "rgba",
-			data: rgba.slice(0), // copy
-		};
+		return new Bitmap(w, h, "rgba", rgba);
 	};
+
+	function crop(data, width, to_width, to_height) {
+		let height = (data.length / width) | 0;
+		if (width > to_width) {
+			let new_width = to_width;
+			let new_height = Math.min(height, to_height);
+			let _data = new Uint8Array(new_width * new_height);
+			for (let row = 0; row < new_height; row++) {
+				_data.set(data.subarray(row * width, (row * width + new_width)), row * new_width);
+			}
+			return _data;
+		} else {
+			return data.subarray(0, width * Math.min(height, to_height));
+		}
+	}
 
 	const VP6Decoder = function (size, withAlpha) {
 		this.width = size[0];
@@ -7786,42 +7800,35 @@ var PinkFie = (function() {
 			frame.get_offset(1),
 			frame.get_offset(2)
 		];
-		//let y = yuv.slice(offsets[0], offsets[0] + width * height);
-		//let u = yuv.slice(offsets[1], offsets[1] + chroma_width * chroma_height);
-		//let v = yuv.slice(offsets[2], offsets[2] + chroma_width * chroma_height);
-
-		//let yuvData = new Uint8Array(y.length + u.length + v.length);
-		//yuvData.set(y, 0);
-		//yuvData.set(u, y.length);
-		//yuvData.set(v, y.length + u.length);
-		var dat = new Uint8Array((width * height) * 4);
-		var yOffset = 0;
-		var uOffset = width * height;
-		var vOffset = width * height + (width * height) / 4;
-		for (var h = 0; h < height; h++) {
-			for (var w = 0; w < width; w++) {
-				var ypos = w + h * width + yOffset;
-				var upos = (w >> 1) + (h >> 1) * width / 2 + uOffset;
-				var vpos = (w >> 1) + (h >> 1) * width / 2 + vOffset;
-				var Y = yuv[ypos] - 16;
-				var U = yuv[upos] - 128;
-				var V = yuv[vpos] - 128;
-				var R = (1.164 * Y + 1.596 * V);
-				var G = (1.164 * Y - 0.813 * V - 0.391 * U);
-				var B = (1.164 * Y + 2.018 * U);
-				var outputData_pos = w * 4 + width * h * 4;
-				dat[0 + outputData_pos] = Math.min(Math.max(R, 0), 255);
-				dat[1 + outputData_pos] = Math.min(Math.max(G, 0), 255);
-				dat[2 + outputData_pos] = Math.min(Math.max(B, 0), 255);
-				dat[3 + outputData_pos] = 255;
-			}
+		if ((width < this.width) || (height < this.height)) {
+			console.log("A VP6 video frame is smaller than the bounds of the stream it belongs in. This is not supported.");
 		}
-		return {
-			data: dat,
-			width,
-			height,
-			type: "rgba"
-		};
+		let y = yuv.subarray(offsets[0], offsets[0] + width * height);
+		let u = yuv.subarray(offsets[1], offsets[1] + chroma_width * chroma_height);
+		let v = yuv.subarray(offsets[2], offsets[2] + chroma_width * chroma_height);
+		let _y = crop(y, width, this.width, this.height);
+		let _u = crop(u, chroma_width, ((this.width + 1) / 2) | 0, ((this.height + 1) / 2) | 0);
+		let _v = crop(v, chroma_width, ((this.width + 1) / 2) | 0, ((this.height + 1) / 2) | 0);
+		width = this.width;
+		height = this.height;
+		if (this.withAlpha) {
+			let [alpha_width, alpha_height] = frame.get_dimensions(3);
+			let alpha_offset = frame.get_offset(3);
+			let alpha = yuv.subarray(alpha_offset, alpha_offset + alpha_width * alpha_height);
+			let a = crop(alpha, alpha_width, this.width, this.height);
+			let yuvData = new Uint8Array(_y.length + _u.length + _v.length + a.length);
+			yuvData.set(_y, 0);
+			yuvData.set(_u, _y.length);
+			yuvData.set(_v, _y.length + _u.length);
+			yuvData.set(a, _y.length + _u.length + _v.length);
+			return new Bitmap(width, height, "yuva420p", yuvData);
+		} else {
+			let yuvData = new Uint8Array(_y.length + _u.length + _v.length);
+			yuvData.set(_y, 0);
+			yuvData.set(_u, _y.length);
+			yuvData.set(_v, _y.length + _u.length);
+			return new Bitmap(width, height, "yuv420p", yuvData);
+		}
 	};
 
 	const VideoStream = function(decoder) {
@@ -7870,6 +7877,7 @@ var PinkFie = (function() {
 		}
 		var canvas = document.createElement("canvas");
 		if (result) {
+			result.toRGBA();
 			if (result.width && result.height) {
 				canvas.width = result.width;
 				canvas.height = result.height;
@@ -8132,7 +8140,7 @@ var PinkFie = (function() {
 				0,
 				scale / 20,
 				0,
-				0,
+				0
 			],
 			[1, 1, 1, 1, 0, 0, 0, 0]
 		);
@@ -8265,13 +8273,15 @@ var PinkFie = (function() {
 		this.debugCanvas.style.top = "0";
 		this.debugCanvas.style.left = "0";
 		this.debugCanvas.style.display = "none";
-		this.debugCanvas.style.background = "rgba(255,255,255,1)";
+		this.debugCanvas.style.backgroundColor = "#fff";
 		this.playerContainer.appendChild(this.debugCanvas);
 		this.resize(640, 400);
 		this.initContextMenu();
 		this.addStatsControls();
 		this.addMessageVerticals();
 		this.addSettingVerticals();
+		this.startTime = Date.now();
+		this.startTime2 = Date.now();
 		this.isError = false;
 		this.messageStatus = ["", 0, 1000, false];
 		this._displayMessage = [0, "", 0, 1000];
@@ -8744,7 +8754,18 @@ var PinkFie = (function() {
 		if (this.flash) {
 			if (!this.isError) {
 				try {
-					this.flash.tick(10);
+					var c = 3;
+					var d = true;
+					while ((c > 0) && ((Date.now() - this.startTime) >= 10) && d) {
+						this.flash.tick(10);
+						this.startTime += 10;
+						c--;
+						d = ((Date.now() - this.startTime2) <= 80);
+					}
+					if (!d) {
+						this.startTime = Date.now();
+					}
+					this.startTime2 = Date.now();
 				} catch(e) {
 					this.handleError(e);
 				}	
@@ -8808,6 +8829,8 @@ var PinkFie = (function() {
 				}
 			}
 		} else {
+			this.startTime = Date.now();
+			this.startTime2 = Date.now();
 			this.__fdfj.min = 1;
 			this.__fdfj.max = 2;
 			this.__fdfj.disabled = true;
@@ -9536,11 +9559,11 @@ var AT_H263_Decoder = (function() {
 		this.codes_chroma_r = codes_chroma_r;
 	}
 
-	function op_cmp(value) {
-		if (value > 0) {
-			return "less";
-		} else if (value < 0) {
+	function op_cmp(a, b) {
+		if (a > b) {
 			return "greater";
+		} else if (a < b) {
+			return "less";
 		} else {
 			return "equal";
 		}
@@ -9562,7 +9585,7 @@ var AT_H263_Decoder = (function() {
 		return -range.n <= this.n && this.n < range.n;
 	}
 	HalfPel.prototype.invert = function() {
-		switch(op_cmp(this.n)) {
+		switch(op_cmp(this.n, 0)) {
 			case "greater":
 				return new HalfPel(this.n - 64);
 			case "less":
@@ -12467,22 +12490,6 @@ var AT_NIHAV_VP6_Decoder = (function() {
 		return asU8(Math.max(Math.min((((asI32(asU8(prob)) * asI32(weights[0]) + 128) >> 8) + asI32(weights[1])), maxval), 1));
 	}
 
-	function vp_tree_func(bc, prob, node1, node2) {
-		if (!bc.read_prob(prob)) {
-			var a = node1();
-			if (a === undefined) {
-				console.log(bc);
-			}
-			return a;
-		} else {
-			var a = node2();
-			if (a === undefined) {
-				console.log(bc);
-			}
-			return a;
-		}
-	}
-
 	const C1S7 = 64277;
 	const C2S6 = 60547;
 	const C3S5 = 54491;
@@ -12891,9 +12898,9 @@ var AT_NIHAV_VP6_Decoder = (function() {
 		let aoffset;
 		let bc;
 		if (this.has_alpha) {
-            validate(src.length >= 7);
-            aoffset = ((src[0]) << 16) | ((src[1]) << 8) | (src[2]);
-            validate((aoffset > 0) && (aoffset < src.length - 3));
+			validate(src.length >= 7);
+			aoffset = ((src[0]) << 16) | ((src[1]) << 8) | (src[2]);
+			validate((aoffset > 0) && (aoffset < src.length - 3));
 			bc = new BoolCoder(src.subarray(3));
 		} else {
 			validate(src.length >= 4);
@@ -12941,7 +12948,19 @@ var AT_NIHAV_VP6_Decoder = (function() {
 
 		this.decode_planes(br, dframe, bc, hdr, psrc, false);
 		if (this.has_alpha) {
-			//throw new Error("UnimplementedDecoding");
+			let asrc = src.subarray(aoffset + 3);
+			let _bc = new BoolCoder(asrc);
+			let ahdr = br.parseHeader(_bc);
+			validate(ahdr.mb_w == hdr.mb_w && ahdr.mb_h == hdr.mb_h);
+			var models = this.models;
+			this.models = this.amodels;
+			this.decode_planes(br, dframe, _bc, ahdr, asrc, true);
+			this.models = models;
+			if (hdr.is_golden && ahdr.is_golden) {
+				this.shuf.add_golden_frame(buf.cloned());
+			} else if (hdr.is_golden && !ahdr.is_golden) {
+			} else if (!hdr.is_golden && ahdr.is_golden) {
+			}
 		}
 		if (hdr.is_golden && !this.has_alpha) {
 			this.shuf.add_golden_frame(buf.cloned());
@@ -13032,37 +13051,7 @@ var AT_NIHAV_VP6_Decoder = (function() {
 				for (let set = 0; set < 20; set++) {
 					if (bc.read_prob(205)) {
 						let sign = bc.read_bool();
-						let diff = vp_tree_func(
-							bc,
-							171,
-							function(){return vp_tree_func(
-								bc,
-								83,
-								function(){return 2},
-								function(){return 1}
-							)},
-							function(){return vp_tree_func(
-								bc,
-								199,
-								function(){return vp_tree_func(
-									bc,
-									140,
-									function(){return vp_tree_func(
-										bc,
-										125,
-										function(){return vp_tree_func(
-											bc,
-											104,
-											function(){return 6},
-											function(){return 5}
-										)},
-										function(){return 4}
-									)},
-									function(){return 3}
-								)},
-								function(){return bc.read_bits(7)}
-							)}
-						) * 4;
+						let diff = (bc.read_prob(171) ? (bc.read_prob(199) ? bc.read_bits(7) : (bc.read_prob(140) ? 3 : (bc.read_prob(125) ? 4 : (bc.read_prob(104) ? 5 : 6)))) : (bc.read_prob(83) ? 1 : 2)) * 4;
 						validate(diff < 256);
 						let _diff = asU8(diff);
 						if (!sign) {
@@ -13151,52 +13140,7 @@ var AT_NIHAV_VP6_Decoder = (function() {
 	VP56Decoder.prototype.decode_mb_type = function(bc, ctx) {
 		let probs = this.models.mbtype_models[ctx][map_mb_type(this.last_mbt)].probs;
 		if (!bc.read_prob(probs[9])) {
-			this.last_mbt = vp_tree_func(
-				bc,
-				probs[0],
-				function(){return vp_tree_func(
-					bc,
-					probs[1],
-					function(){return vp_tree_func(
-						bc,
-						probs[3],
-						function(){return new VPMBType(VPMBType.InterNoMV)},
-						function(){return new VPMBType(VPMBType.InterMV)}
-					)},
-					function(){return vp_tree_func(
-						bc,
-						probs[4],
-						function(){return new VPMBType(VPMBType.InterNearest)},
-						function(){return new VPMBType(VPMBType.InterNear)}
-					)}
-				)},
-				function(){return vp_tree_func(
-					bc,
-					probs[2],
-					function(){return vp_tree_func(
-						bc,
-						probs[5],
-						function(){return new VPMBType(VPMBType.Intra)},
-						function(){return new VPMBType(VPMBType.InterFourMV)}
-					)},
-					function(){return vp_tree_func(
-						bc,
-						probs[6],
-						function(){return vp_tree_func(
-							bc,
-							probs[7],
-							function(){return new VPMBType(VPMBType.GoldenNoMV)},
-							function(){return new VPMBType(VPMBType.GoldenMV)}
-						)},
-						function(){return vp_tree_func(
-							bc,
-							probs[8],
-							function(){return new VPMBType(VPMBType.GoldenNearest)},
-							function(){return new VPMBType(VPMBType.GoldenNear)}
-						)}
-					)}
-				)}
-			);
+			this.last_mbt = bc.read_prob(probs[0]) ? (bc.read_prob(probs[2]) ? (bc.read_prob(probs[6]) ? (bc.read_prob(probs[8]) ? new VPMBType(VPMBType.GoldenNear) : new VPMBType(VPMBType.GoldenNearest)) : (bc.read_prob(probs[7]) ? new VPMBType(VPMBType.GoldenMV) : new VPMBType(VPMBType.GoldenNoMV))) : (bc.read_prob(probs[5]) ? new VPMBType(VPMBType.InterFourMV) : new VPMBType(VPMBType.Intra))) : (bc.read_prob(probs[1]) ? (bc.read_prob(probs[4]) ? new VPMBType(VPMBType.InterNear) : new VPMBType(VPMBType.InterNearest)) : (bc.read_prob(probs[3]) ? new VPMBType(VPMBType.InterMV) : new VPMBType(VPMBType.InterNoMV)));
 		}
 		return this.last_mbt;
 	}
@@ -13575,40 +13519,7 @@ var AT_NIHAV_VP6_Decoder = (function() {
 			}
 			level = asI16(token);
 		} else {
-			// usize function() { return null }
-			let cat = vp_tree_func(
-				bc,
-				val_probs[6],
-				function() {
-					return vp_tree_func(
-						bc,
-						val_probs[7],
-						function() { return 0 },
-						function() { return 1 }
-					)
-				},
-				function() {
-					return vp_tree_func(
-						bc,
-						val_probs[8],
-						function() { return vp_tree_func(
-							bc,
-							val_probs[9],
-							function() { return 2 },
-							function() { return 3 }
-						)},
-						function() {
-							return vp_tree_func(
-								bc,
-								val_probs[10],
-								function() { return 4 },
-								function() { return 5 }
-							)    
-						}
-						
-					)
-				}
-			);
+			let cat = bc.read_prob(val_probs[6]) ? (bc.read_prob(val_probs[8]) ? (bc.read_prob(val_probs[10]) ? 5 : 4) : (bc.read_prob(val_probs[9]) ? 3 : 2)) : (bc.read_prob(val_probs[7]) ? 1 : 0);
 			if (version == 5) {
 				sign = bc.read_bool();
 			}
@@ -13633,14 +13544,6 @@ var AT_NIHAV_VP6_Decoder = (function() {
 		}
 	}
 
-	//function vp_tree(bc, prob, node1, node2) {
-	//    if (!bc.read_prob(prob)) {
-	//        return node1;
-	//    } else {
-	//        return node2;
-	//    }
-	//}
-
 	function decode_token_bc(bc, probs, prob34, is_dc, has_nnz) {
 		if (has_nnz && !bc.read_prob(probs[0])) {
 			if (is_dc || bc.read_prob(probs[1])) {
@@ -13649,81 +13552,12 @@ var AT_NIHAV_VP6_Decoder = (function() {
 				return TOKEN_EOB;
 			}
 		} else {
-			var res = vp_tree_func(
-				bc,
-				probs[2],
-				function() {
-					return 1
-				},
-				function() {
-					return vp_tree_func(
-						bc,
-						probs[3],
-						function() {return vp_tree_func(
-							bc,
-							probs[4],
-							function() {return 2},
-							function() {return vp_tree_func(
-								bc,
-								prob34,
-								function(){return 3},
-								function(){return 4}
-							)}
-						)},
-						function(){
-							return TOKEN_LARGE
-						}
-					)
-				}
-			);
-			return asU8(res);
+			return asU8(bc.read_prob(probs[2]) ? (bc.read_prob(probs[3]) ? TOKEN_LARGE : (bc.read_prob(probs[4]) ? (bc.read_prob(prob34) ? 4 : 3) : 2)) : 1);
 		}
 	}
 
-	function decode_zero_run_bc(bc, probs) { // usize
-		let val = vp_tree_func(
-			bc,
-			probs[0],
-			function() {
-				return vp_tree_func(
-					bc,
-					probs[1],
-					function(){return vp_tree_func(
-						bc,
-						probs[2],
-						function(){return 0},
-						function(){return 1}
-					)},
-					function(){return vp_tree_func(
-						bc,
-						probs[3],
-						function(){return 2},
-						function(){return 3}
-					)}
-				)
-			},
-			function(){return vp_tree_func(
-				bc,
-				probs[4],
-				function(){return vp_tree_func(
-					bc,
-					probs[5],
-					function(){return vp_tree_func(
-						bc,
-						probs[6],
-						function(){return 4},
-						function(){return 5}
-					)},
-					function(){return vp_tree_func(
-						bc,
-						probs[7],
-						function(){return 6},
-						function(){return 7}
-					)}
-				)},
-				function(){return 42}
-			)}
-		);
+	function decode_zero_run_bc(bc, probs) {
+		let val = bc.read_prob(probs[0]) ? (bc.read_prob(probs[4]) ? 42 : (bc.read_prob(probs[5]) ? (bc.read_prob(probs[7]) ? 7 : 6) : (bc.read_prob(probs[6]) ? 5 : 4))) : (bc.read_prob(probs[1]) ? (bc.read_prob(probs[3]) ? 3 : 2) : (bc.read_prob(probs[2]) ? 1 : 0));
 		if (val != 42) {
 			return val;
 		} else {
@@ -13958,42 +13792,7 @@ var AT_NIHAV_VP6_Decoder = (function() {
 	VP6BR.prototype.decode_mv = function(bc, model) {
 		let val;
 		if (!bc.read_prob(model.nz_prob)) {
-			val = vp_tree_func(
-				bc,
-				model.tree_probs[0],
-				function() {return vp_tree_func(
-					bc,
-					model.tree_probs[1],
-					function(){return vp_tree_func(
-						bc,
-						model.tree_probs[2],
-						function() {return 0},
-						function() {return 1}
-					)},
-					function(){return vp_tree_func(
-						bc,
-						model.tree_probs[3],
-						function(){return 2},
-						function(){return 3}
-					)}
-				)},
-				function(){return vp_tree_func(
-					bc,
-					model.tree_probs[4],
-					function() {return vp_tree_func(
-						bc,
-						model.tree_probs[5],
-						function(){return 4},
-						function(){return 5}
-					)},
-					function(){return vp_tree_func(
-						bc,
-						model.tree_probs[6],
-						function(){return 6},
-						function(){return 7}
-					)}
-				)}
-			);
+			val = bc.read_prob(model.tree_probs[0]) ? (bc.read_prob(model.tree_probs[4]) ? (bc.read_prob(model.tree_probs[6]) ? 7 : 6) : (bc.read_prob(model.tree_probs[5]) ? 5 : 4)) : (bc.read_prob(model.tree_probs[1]) ? (bc.read_prob(model.tree_probs[3]) ? 3 : 2) : (bc.read_prob(model.tree_probs[2]) ? 1 : 0));
 		} else {
 			let raw = 0;
 			for (var i = 0; i < LONG_VECTOR_ORDER.length; i++) {

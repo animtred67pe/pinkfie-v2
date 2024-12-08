@@ -239,5 +239,13 @@
     name: "NihAV VP6 - 532624_SnowLady",
     md5: "c502323964930a8b5a3b25665e25c74b"
   }); 
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 -【Touhou】Sakkyun Hair Makeover【東方手書き】",
+    md5: "613242b9dfef8307e70982fdf51bd3ed_4ad71ae9de436eb9b0a6d2b135580078"
+  }); 
+  _pinkfieSampleSWF.push({
+    name: "Sorenson H.263 - 599450_Jamie's_Video(1)",
+    md5: "63774ff7c747afab6f5ed5e39a7c3deb_e42905d0927985f82417f2eb6abf6d07"
+  });
   window.pinkfieSampleSWF = _pinkfieSampleSWF;
 }());
