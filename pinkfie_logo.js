@@ -212,7 +212,7 @@
     md5: "3735a836f4a7f59fd5029c6ada49b690_c6b7b46555fbdef11bae64ba624f6ce8"
   });
   _pinkfieSampleSWF.push({
-    name: "Sorenson H.263 - CARD CRUSHA (Unimplemented MP3 Stream)",
+    name: "Sorenson H.263 - CARD CRUSHA",
     md5: "97f84adbcc4fcc7219637f2ae2ddd015"
   });
   _pinkfieSampleSWF.push({
@@ -246,6 +246,14 @@
   _pinkfieSampleSWF.push({
     name: "Sorenson H.263 - 599450_Jamie's_Video(1)",
     md5: "63774ff7c747afab6f5ed5e39a7c3deb_e42905d0927985f82417f2eb6abf6d07"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 588352_Counter-Strike_Animated_Mo",
+    md5: "b5c92f19d833bebe9bae259782d2059a_e07861c29d92b04e32493ab716685834_d9d567f2a1c73015a1371eab69e77320"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 720p - 597630_video",
+    md5: "dff015fb0e92b293f36fcad7c5b6a4ff_09ac7b3b3e80e488a13deab1d607bbf2_830785bb68cba4ce8a7fa17c3eb11ec7"
   });
   window.pinkfieSampleSWF = _pinkfieSampleSWF;
 }());

@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript
  * 
- * v2.1.3 (2024-12-7)
+ * v2.1.4 (2024-12-8)
  * 
  * Made in Peru
  * 
@@ -5187,6 +5187,7 @@ var PinkFie = (function() {
 		};
 		this.keyframes = [];
 		this.source = null;
+		this.isSmoothed = false;
 		this.decoded_frame = [0, null];
 		this._debug_colorDisplayType = [255, 100, 100, 1];
 		this.displayType = "Video";
@@ -5199,7 +5200,7 @@ var PinkFie = (function() {
 		h.source = {
 			type: "swf",
 			streamdef,
-			frames: [],
+			frames: []
 		};
 		h.__size = [streamdef.width, streamdef.height];
 		h.__movie = movie;
@@ -5210,7 +5211,11 @@ var PinkFie = (function() {
 		displayObject.__size = this.__size.slice(0);
 		displayObject.__movie = this.__movie;
 		displayObject._ratio = this._ratio;
-		displayObject.stream = this.stream;
+		displayObject.stream = {
+			isInstantiated: false,
+			result: 0
+		};
+		displayObject.isSmoothed = this.isSmoothed;
 		displayObject.source = this.source;
 		displayObject.keyframes = [];
 		displayObject.decoded_frame = null;
@@ -5306,6 +5311,7 @@ var PinkFie = (function() {
 	DisplayVideoStream.prototype.postInstantiation = function (context, initObject, instantiatedBy, runFrame) {
 		var source = this.source;
 		var streamdef = this.source.streamdef;
+		this.isSmoothed = !!streamdef.isSmoothed;
 		var stream = context.video.registerVideoStream(streamdef.numFrames, [streamdef.width, streamdef.height], streamdef.codec, streamdef.codec);
 		var keyframes = [];
 		if (!stream.decoder) return;
@@ -5319,10 +5325,10 @@ var PinkFie = (function() {
 			});
 			keyframes[i] = dep;
 		}
+		this.keyframes = keyframes;
 		var starting_seek = (this.stream.isInstantiated ? 0 : this.stream.result);
 		this.stream.isInstantiated = true;
 		this.stream.result = stream;
-		this.keyframes = keyframes;
 		this.seek(context, starting_seek);
 	};
 	DisplayVideoStream.prototype.preloadSwfFrame = function (videoframe) {
@@ -5333,7 +5339,7 @@ var PinkFie = (function() {
 		if (decoded_frame) {
 			context.transformStack.stackPush([20,0,0,20,0,0],[1,1,1,1,0,0,0,0]);
 			if (decoded_frame[1]) 
-				context.commands.renderBitmap(decoded_frame[1], context.transformStack.getMatrix(), context.transformStack.getColorTransform(), false);
+				context.commands.renderBitmap(decoded_frame[1], context.transformStack.getMatrix(), context.transformStack.getColorTransform(), this.isSmoothed);
 			context.transformStack.stackPop();	
 		}
 	};
@@ -5996,6 +6002,7 @@ var PinkFie = (function() {
 					if (runSounds) this.startSound1(context, rTag[1]);
 					break;
 				case 4:
+					this.set_background_color(context, rTag[1])
 					break;
 				case 5:
 					if (runSounds) this.soundStreamBlock(context, rTag[1]);
@@ -6391,6 +6398,11 @@ var PinkFie = (function() {
 			}
 		}
 	};
+	MovieClip.prototype.set_background_color = function (context, background_color) {
+		if (!context.stage.getBackgroundColor()) {
+			context.stage.setBackgroundColor(background_color);
+		}
+	};
 	
 	const PreloadProgress = function () {
 		this.nextPreloadChunk = 0;
@@ -6650,6 +6662,15 @@ var PinkFie = (function() {
 		}
 		return buffer;
 	}
+	function getMP3Sample(blocks) {
+		var s = 0;
+		for (let i = 0; i < blocks.length; i++) {
+			const block = blocks[i];
+			var _in = new ByteInput(block);
+			s += _in.readUint16();
+		}
+		return s;
+	}
 	function loadStreamSound(audioContext, blocks, streamInfo) {
 		var streamStream = streamInfo.stream;
 		var compression = streamStream.compression;
@@ -6877,7 +6898,7 @@ var PinkFie = (function() {
 				this.stopSound(playingAudio);
 			}
 		} else {
-			this.playSound(playingAudio);
+			//this.playSound(playingAudio);
 		}
 	};
 	AudioBackend.prototype.tickPlayingSoundStream = function (playingaudio) {
@@ -6885,7 +6906,7 @@ var PinkFie = (function() {
 			if (this.streamSoundIsEnded(playingaudio)) {
 				this.stopStreamSound(playingaudio);
 			} else {
-				this.playStreamSound(playingaudio);
+				//this.playStreamSound(playingaudio);
 			}
 		} else {
 		}
@@ -6952,9 +6973,9 @@ var PinkFie = (function() {
 		if (soundPlaying.nodeLR) source.connect(soundPlaying.nodeLR.inputNode);
 		else source.connect(this.node);
 		var s = soundPlaying.soundStart + (this.audioContext.currentTime - soundPlaying.startTime);
-		source.loop = true;
-		source.loopStart = s;
-		source.loopEnd = s + 0.25;
+		//source.loop = true;
+		//source.loopStart = s;
+		//source.loopEnd = s + 0.25;
 		source.start(this.audioContext.currentTime, s);
 		soundPlaying.source = source;
 	};
@@ -7032,9 +7053,9 @@ var PinkFie = (function() {
 		source.connect(this.node);
 		var timeFrame = soundPlaying.timeFrame;
 		var s = timeFrame + (this.audioContext.currentTime - soundPlaying.startTime);
-		source.loop = true;
-		source.loopStart = s;
-		source.loopEnd = s + 0.25;
+		//source.loop = true;
+		//source.loopStart = s;
+		//source.loopEnd = s + 0.25;
 		source.start(this.audioContext.currentTime, s);
 		soundPlaying.source = source;
 	};
@@ -7074,17 +7095,19 @@ var PinkFie = (function() {
 			case "yuv420p":
 			case "yuva420p":
 				var isAlpha = this.format == "yuva420p";
+				var chroma_width = (((width + 1) / 2) | 0);
+				var chroma_height = (((height + 1) / 2) | 0);
 				var yuv = this.data;
 				var data = new Uint8Array((width * height) * 4);
 				var yOffset = 0;
 				var uOffset = width * height;
-				var vOffset = uOffset + uOffset / 4;
-				var aOffset = uOffset + (uOffset / 4) + (uOffset / 4);
+				var vOffset = uOffset + (chroma_width * chroma_height);
+				var aOffset = uOffset + (chroma_width * chroma_height) + (chroma_width * chroma_height);
 				for (var h = 0; h < height; h++) {
 					for (var w = 0; w < width; w++) {
 						var ypos = w + h * width + yOffset;
-						var upos = (w >> 1) + (h >> 1) * width / 2 + uOffset;
-						var vpos = (w >> 1) + (h >> 1) * width / 2 + vOffset;
+						var upos = (w >> 1) + (h >> 1) * chroma_width + (uOffset);
+						var vpos = (w >> 1) + (h >> 1) * chroma_width + (vOffset);
 						var Y = yuv[ypos] - 16;
 						var U = yuv[upos] - 128;
 						var V = yuv[vpos] - 128;
@@ -7991,7 +8014,6 @@ var PinkFie = (function() {
 
 	const ExecutionLimit = function (limit) {
 		this.limit = limit;
-		this.startFrame = Date.now();
 	};
 	ExecutionLimit.prototype.didOpsBreachLimit = function (context, g) {
 		this.limit -= g;
@@ -8000,7 +8022,44 @@ var PinkFie = (function() {
 	ExecutionLimit.prototype.terminate = function () {
 		this.limit = -1;
 	};
+
+	const Stage = function(fullscreen) {
+		DisplayObjectContainer.call(this);
+		this._backgroundColor = null;
+		this.child = new ChildContainer();
+		this.movie_size = [0, 0];
+		this.stage_size = [0, 0];
+		this.viewport_matrix = [1, 0, 0, 1, 0, 0];
+		this._movie = null;
+	}
+	Stage.prototype = Object.create(DisplayObjectContainer.prototype);
+	Stage.prototype.constructor = Stage;
+	Stage.prototype.rawContainer = function () {
+		return this.child;
+	};
+	Stage.prototype.getBackgroundColor = function() {
+		return this._backgroundColor;
+	}
+	Stage.prototype.setBackgroundColor = function(color) {
+		this._backgroundColor = color.slice(0);
+	}
+	Stage.prototype.movie = function() {
+		return this._movie;
+	}
+	Stage.prototype.setMovie = function(movie) {
+		this._movie = movie;
+	}
+	Stage.prototype.getRootClip = function() {
+		return this.childByDepth(0);
+	}
+	Stage.prototype.render = function(context) {
+		context.transformStack.stackPush(this.viewport_matrix, [1, 1, 1, 1, 0, 0, 0, 0]);
+		renderBase.call(this, context);
+        context.transformStack.stackPop();
+	}
+
 	const Player = function () {
+		this.stage = null;
 		this.version = 0;
 		this.swf = null;
 		this.isPlaying = true;
@@ -8012,7 +8071,6 @@ var PinkFie = (function() {
 		this.instanceCounter = 0;
 		this.library = null;
 		this.avm1 = null;
-		this._clip = null;
 		this.loaded = false;
 		this.callback = null;
 	};
@@ -8037,6 +8095,7 @@ var PinkFie = (function() {
 		this.avm1 = new Avm1();
 		this.audio = new AudioBackend();
 		this.video = new VideoBackend();
+		this.stage = new Stage("normal");
 	};
 	Player.prototype.setPlaying = function (v) {
 		if (v) this.audio.play();
@@ -8069,7 +8128,7 @@ var PinkFie = (function() {
 		this.render();
 	};
 	Player.prototype.getRootClip = function () {
-		return this._clip;
+		return this.stage.getRootClip();
 	};
 	Player.prototype.togglePlayRootMovie = function (context) {
 		var root = this.getRootClip();
@@ -8128,30 +8187,21 @@ var PinkFie = (function() {
 	Player.prototype.render = function () {
 		if (!this.needsRender) return;
 		this.needsRender = false;
-		var backgroundColor = this.swf.backgroundColor;
+		var backgroundColor = [255, 255, 255, 1];
 		var ts = new TransformStack();
 		var scaleW = this.renderer.width / this.width;
 		var scaleH = this.renderer.height / this.height;
 		var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
-		ts.stackPush(
-			[
-				scale / 20,
-				0,
-				0,
-				scale / 20,
-				0,
-				0
-			],
-			[1, 1, 1, 1, 0, 0, 0, 0]
-		);
+		ts.stackPush([scale / 20, 0, 0, scale / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
 		var context = new RenderContext({
 			library: this.library,
 			renderer: this.renderer,
 			commands: new CommandList(),
 			transformStack: ts,
 		});
-		var root = this.getRootClip();
-		root.render(context);
+		backgroundColor = this.stage.getBackgroundColor();
+		if (!backgroundColor) backgroundColor = [255, 255, 255, 1];
+		this.stage.render(context);
 		ts.stackPop();
 		this.renderer.submitFrame(backgroundColor, context.commands);
 	};
@@ -8167,16 +8217,21 @@ var PinkFie = (function() {
 		this.audio.setFrameRate(movie.frameRate);
 		this.instanceCounter = 0;
 		this.mutateWithUpdateContext((context) => {
+			this.stage.movie_size[0] = context.swf.width;
+			this.stage.movie_size[1] = context.swf.height;
+			this.stage.setMovie(context.swf);
 			var root = MovieClip.playerRootMovie(movie);
+            root.setDepth(0);
 			root.postInstantiation(context, null, "movie", false);
 			root.setDefaultInstanceName(context);
-			this._clip = root;
+            context.stage.replaceAtDepth(context, 0, root);
 		});
 		if (this.callback) this.callback();
 	};
 	Player.prototype.mutateWithUpdateContext = function (callback) {
 		var context = new UpdateContext({
 			player: this,
+			stage: this.stage,
 			renderer: this.renderer,
 			library: this.library,
 			audio: this.audio,
@@ -8273,7 +8328,6 @@ var PinkFie = (function() {
 		this.debugCanvas.style.top = "0";
 		this.debugCanvas.style.left = "0";
 		this.debugCanvas.style.display = "none";
-		this.debugCanvas.style.backgroundColor = "#fff";
 		this.playerContainer.appendChild(this.debugCanvas);
 		this.resize(640, 400);
 		this.initContextMenu();
@@ -8461,12 +8515,16 @@ var PinkFie = (function() {
 		rrj.appendChild(a2);
 
 		var rrj5 = document.createElement("label");
-		rrj5.innerHTML = "Base Bounds: ";
+		rrj5.innerHTML = "Render Mode: ";
 
-		var rrj6 = document.createElement("input");
-		rrj6.type = "checkbox";
+		var rrj6 = document.createElement("select");
+		rrj6.innerHTML = '<option value="0">render<option value="1">render with display bounds<option value="2">display bounds without render';
 		rrj6.addEventListener("change", () => {
-			this.c_bbbb();
+			if (rrj6.value) {
+				this.setOptions({
+					rendermode: +rrj6.value,
+				});
+			}
 		});
 
 		rrj.appendChild(document.createElement("br"));
@@ -8681,12 +8739,16 @@ var PinkFie = (function() {
 		}
 		return [x, y, w, h];
 	};
-	PinkFiePlayer.prototype.renderBounds = function () {
+	PinkFiePlayer.prototype.renderBounds = function (fds) {
 		var debctx = this.debugCtx;
 		var debcanv = this.debugCanvas;
 		var clip = this.flash.getRootClip();
 		if (!clip) return;
 		debctx.clearRect(0, 0, debcanv.width, debcanv.height);
+		if (fds) {
+			debctx.fillStyle = "#fff";
+			debctx.fillRect(0, 0, debcanv.width, debcanv.height);
+		}
 		var rTags = [];
 		clip.debugRenderBounds(
 			[
@@ -8770,13 +8832,15 @@ var PinkFie = (function() {
 					this.handleError(e);
 				}	
 			}
-			if (this.options.viewBounds) {
+			var rend = this.options.rendermode;
+			if (rend == 1 || rend == 2) {
 				this.debugCanvas.style.display = "";
-				this.renderBounds();
+				this.renderBounds(rend == 2);
 			} else {
-				this.flash.render();
 				this.debugCanvas.style.display = "none";
 			}
+			if (rend == 0 || rend == 1) this.flash.render();
+
 			var gloaded = this.flash.getProgress();
 			if (gloaded[0] == gloaded[1]) {
 				this.messageStatus[1] = 0;
@@ -8910,8 +8974,10 @@ var PinkFie = (function() {
 			canvas.style.height = rect[3] + "px";
 			this.debugCanvas.style.left = rect[0] + "px";
 			this.debugCanvas.style.top = rect[1] + "px";
-			this.debugCanvas.width = rect[2];
-			this.debugCanvas.height = rect[3];
+			this.debugCanvas.width = canvas.width;
+			this.debugCanvas.height = canvas.height;
+			this.debugCanvas.style.height = rect[3] + "px";
+			this.debugCanvas.style.width = rect[2] + "px";
 			this.statsE.style.left = rect[0] + "px";
 			this.statsE.style.top = rect[1] + "px";
 		}
@@ -9173,7 +9239,7 @@ var PinkFie = (function() {
 		volume: 100,
 		quality: "high",
 		autoplay: true,
-		viewBounds: false,
+		rendermode: 0,
 	};
 
 	return {

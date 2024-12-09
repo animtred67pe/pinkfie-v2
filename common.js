@@ -27,6 +27,8 @@ var Common = (function() {
     playerOptions.quality = URLsearchParams("quality");
   }
 
+  playerOptions.rendermode = +(URLsearchParams("render_mode")) || 0;
+
   var swfUrl = URLsearchParams("swfurl");
   var swfMd5 = URLsearchParams("swfmd5");
   if (!swfUrl) {
