@@ -5,15 +5,15 @@
     md5: "4081f087eb3e51d2a5eb7517f1614da9"
   });
   _pinkfieSampleSWF.push({
-    name: "Sorenson H.263 - testcard",
+    name: "Test Sorenson H.263",
     md5: "150c3b471ecfce61d3733107f1543428"
   });
   _pinkfieSampleSWF.push({
-    name: "NihAV VP6 - testcard",
+    name: "Test NihAV VP6",
     md5: "2fbad50a333e448cfa010eb7bd1c538b"
   });
   _pinkfieSampleSWF.push({
-    name: "NihAV VP6 with alpha - testcard (UNFINISHED)",
+    name: "Test NihAV VP6 with alpha",
     md5: "fdc5c9e530f3ce9de2b5e541deb2b08f"
   });
   _pinkfieSampleSWF.push({
@@ -254,6 +254,22 @@
   _pinkfieSampleSWF.push({
     name: "NihAV VP6 720p - 597630_video",
     md5: "dff015fb0e92b293f36fcad7c5b6a4ff_09ac7b3b3e80e488a13deab1d607bbf2_830785bb68cba4ce8a7fa17c3eb11ec7"
+  });
+  _pinkfieSampleSWF.push({
+    name: "NihAV VP6 - 522938_snowmen1",
+    md5: "4720b6cc9060cf06a6bfd047f427acb3_4859cea18c3ae95f163a78327c55c61a"
+  });
+  _pinkfieSampleSWF.push({
+    name: "Sorenson H.263 - LazyTownPirateSong",
+    md5: "9c611b004577f6763b05560fedb9548b"
+  });
+  _pinkfieSampleSWF.push({
+    name: "Sorenson H.263 - Otsuka - Sakuranbo",
+    md5: "1e81abfb938d3ee6093e7fba2ce397c4"
+  });
+  _pinkfieSampleSWF.push({
+    name: "Sorenson H.263 - 【重音テト】重音territory",
+    md5: "5ec2969b3de4a96a5b4ebe67789d48bf"
   });
   window.pinkfieSampleSWF = _pinkfieSampleSWF;
 }());

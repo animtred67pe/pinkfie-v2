@@ -1,11 +1,9 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript
  * 
- * v2.1.4 (2024-12-8)
+ * v2.1.5 (2024-12-11)
  * 
  * Made in Peru
- * 
- * (c) 2024 ATFSMedia Productions.
  */
 
 var PinkFie = (function() {
@@ -4322,10 +4320,6 @@ var PinkFie = (function() {
 		tags.push([0, g1[0] | 0, g1[1] | 0, g2[0] | 0, g2[1] | 0, g3[0] | 0, g3[1] | 0, g4[0] | 0, g4[1] | 0]);
 		tags.push([1, matrixBounds.xMin | 0, matrixBounds.yMin | 0, matrixBounds.xMax | 0, matrixBounds.yMax | 0]);
 		tags.push([2, matrixBounds.xMin | 0, matrixBounds.yMin | 0]);
-		if (this instanceof DisplayVideoStream) {
-			tags.push([4, this.getDecoderType() + ": " + (this.decoded_frame ? this.decoded_frame[0] : "?"), 0, 232, 0]);
-			tags.push([2, (matrixBounds.xMin + 2) | 0, (matrixBounds.yMin + 22) | 0]);
-		}
 	};
 	DisplayObject.prototype.renderSelf = function () {};
 	DisplayObject.prototype.enterFrame = function () {};
@@ -5234,27 +5228,6 @@ var PinkFie = (function() {
 	DisplayVideoStream.prototype.setRatio = function (ratio) {
 		this._ratio = ratio;
 	};
-	DisplayVideoStream.prototype.getDecoderType = function () {
-		if (this.source) {
-			if (this.source.type == "swf") {
-				if (this.stream.isInstantiated && this.stream.result) {
-					var decoder = this.stream.result.decoder;
-					if (decoder) {
-						if (decoder instanceof H263Decoder) {
-							return "H.263";
-						} else if (decoder instanceof ScreenVideoDecoder) {
-							return "Screen Video";
-						} else if (decoder instanceof VP6Decoder) {
-							return "Vp6";
-						} else {
-							return "?";
-						}
-					}
-				}
-			}
-		}
-		return "";
-	};
 	DisplayVideoStream.prototype.seek = function (context, frame_id) {
 		if (!this.stream.isInstantiated) {
 			this.stream.result = frame_id;
@@ -5262,28 +5235,31 @@ var PinkFie = (function() {
 		}
 		var num_frames = this.source.streamdef.numFrames;
 		let last_frame = this.decoded_frame ? this.decoded_frame[0] : -1;
-
 		if (last_frame == frame_id) return;
-
 		let is_ordered_seek = (frame_id == 0) || frame_id == (last_frame + 1);
-
 		let sweep_from = frame_id;
 		if (!is_ordered_seek) {
 			var keyframes = this.keyframes;
-			var isE = false;
+			let prev_keyframe_id = 0;
 			for (let i = frame_id; i >= 0; i--) {
 				if (i in keyframes) {
 					const isKeyframe = keyframes[i];
 					if (!isKeyframe) {
-						sweep_from = i;
-						isE = true;
+						prev_keyframe_id = i;
 						break;
 					}
 				}
 			}
-			if (!isE) return;
+			if (last_frame !== null) {
+				if (frame_id > last_frame) {
+					sweep_from = Math.max(prev_keyframe_id, last_frame + 1);
+				} else {
+					sweep_from = prev_keyframe_id;
+				}
+			} else {
+				sweep_from = prev_keyframe_id;
+			}
 		}
-		
 		var fr = sweep_from;
 		while (fr <= frame_id) {
 			this.seek_internal(context, fr);
@@ -5302,7 +5278,13 @@ var PinkFie = (function() {
 				data: frame,
 				frameId,
 			};
-			res = context.video.decodeVideoStreamFrame(stream, encframe, context.renderer);
+			var _ = Date.now();
+			try {
+				res = context.video.decodeVideoStreamFrame(stream, encframe, context.renderer);
+			} catch(e) {
+				console.log("Got error when seeking to video frame " + frameId + ":", e);
+				return;
+			}
 		} else {
 			res = this.decoded_frame[1];
 		}
@@ -5323,7 +5305,7 @@ var PinkFie = (function() {
 				data: frame,
 				frameId: i,
 			});
-			keyframes[i] = dep;
+			keyframes[i] = !!dep;
 		}
 		this.keyframes = keyframes;
 		var starting_seek = (this.stream.isInstantiated ? 0 : this.stream.result);
@@ -7122,6 +7104,7 @@ var PinkFie = (function() {
 					}
 				}
 				this.data = data;
+				yuv = null;
 				break;
 		}
 	}
@@ -7212,20 +7195,9 @@ var PinkFie = (function() {
 				colorT.slice(0),
 			]);
 	};
-	CommandList.prototype.renderBitmap = function (
-		bitmap,
-		transfrom,
-		colorT,
-		isSmoothed
-	) {
+	CommandList.prototype.renderBitmap = function (bitmap, transfrom, colorT, isSmoothed) {
 		if (this.maskersInProgress <= 1)
-			this.commandLists.push([
-				"render_bitmap",
-				bitmap,
-				transfrom.slice(0),
-				colorT.slice(0),
-				isSmoothed,
-			]);
+			this.commandLists.push(["render_bitmap", bitmap, transfrom.slice(0), colorT.slice(0), isSmoothed]);
 	};
 	CommandList.prototype.pushMask = function () {
 		if (this.maskersInProgress == 0) this.commandLists.push(["push_mask"]);
@@ -7279,6 +7251,7 @@ var PinkFie = (function() {
 		this.isDrawing = false;
 		this.isColorTransformCache = false;
 		this.c = [NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN];
+		this.ctx = null;
 	};
 	RenderCanvas2dTexture.prototype._initColorTransformCache = function () {
 		this.tmpCanvas = document.createElement("canvas");
@@ -7312,16 +7285,10 @@ var PinkFie = (function() {
 						var G = pxData[idx++];
 						var B = pxData[idx++];
 						var A = pxData[idx++];
-						pxData[idx - 4] =
-							Math.max(0, Math.min(R * RedMultiTerm + RedAddTerm, 255)) | 0;
-						pxData[idx - 3] =
-							Math.max(0, Math.min(G * GreenMultiTerm + GreenAddTerm, 255)) | 0;
-						pxData[idx - 2] =
-							Math.max(0, Math.min(B * BlueMultiTerm + BlueAddTerm, 255)) | 0;
-						pxData[idx - 1] = Math.max(
-							0,
-							Math.min(A * AlphaMultiTerm + AlphaAddTerm, 255)
-						);
+						pxData[idx - 4] = Math.max(0, Math.min(R * RedMultiTerm + RedAddTerm, 255)) | 0;
+						pxData[idx - 3] = Math.max(0, Math.min(G * GreenMultiTerm + GreenAddTerm, 255)) | 0;
+						pxData[idx - 2] = Math.max(0, Math.min(B * BlueMultiTerm + BlueAddTerm, 255)) | 0;
+						pxData[idx - 1] = Math.max(0, Math.min(A * AlphaMultiTerm + AlphaAddTerm, 255));
 					}
 				}
 				this.tmpCtx.putImageData(imgData, 0, 0);
@@ -7340,14 +7307,24 @@ var PinkFie = (function() {
 		}
 	};
 	RenderCanvas2dTexture.prototype.setImage = function (image) {
-		var canvas = document.createElement("canvas");
-		var ctx = canvas.getContext("2d");
-		canvas.width = image.width;
-		canvas.height = image.height;
+		if (!image) return;
+		if (this.texture) {
+			this.texture.width = image.width;
+			this.texture.height = image.height;	
+		} else {
+			var canvas = document.createElement("canvas");
+			this.ctx = canvas.getContext("2d");
+			canvas.width = image.width;
+			canvas.height = image.height;	
+			this.texture = canvas;
+		}
 		this.width = image.width;
 		this.height = image.height;
-		ctx.drawImage(image, 0, 0);
-		this.texture = canvas;
+		if (image instanceof ImageData) {
+			this.ctx.putImageData(image, 0, 0);
+		} else {
+			this.ctx.drawImage(image, 0, 0);
+		}
 		this.isDrawing = true;
 		this.c = [NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN];
 		this.isColorTransformCache = false;
@@ -7800,7 +7777,8 @@ var PinkFie = (function() {
 		this.lastFrame = null; // NABufferRef NAVideoBuffer
 	};
 	VP6Decoder.prototype.preloadFrame = function (encodedFrame) {
-		return new Uint8Array(encodedFrame.data)[0] & 128;
+		let flag_index = this.withAlpha ? 3 : 0;
+		return new Uint8Array(encodedFrame.data)[flag_index] & 128;
 	};
 	VP6Decoder.prototype.decodeFrame = function (encodedFrame) {
 		var videoData = new Uint8Array(encodedFrame.data);
@@ -7892,24 +7870,13 @@ var PinkFie = (function() {
 	VideoBackend.prototype.decodeVideoStreamFrame = function(stream, encodedFrame, renderer) {
 		var _stream = stream;
 		var decoder = _stream.decoder;
-		var result = null;
-		try {
-			result = decoder.decodeFrame(encodedFrame); 
-		} catch(e) {
-			console.log("Got error when seeking to video frame", e);
-		}
-		var canvas = document.createElement("canvas");
+		var result = decoder.decodeFrame(encodedFrame);
+		var imageData = null;
 		if (result) {
 			result.toRGBA();
 			if (result.width && result.height) {
-				canvas.width = result.width;
-				canvas.height = result.height;
-				var data = result.data;
-				var ctx = canvas.getContext("2d");
-				var rImageData = ctx.createImageData(canvas.width, canvas.height);
-				var rData = rImageData.data;
-				rData.set(data, 0);
-				ctx.putImageData(rImageData, 0, 0);   
+				imageData = new ImageData(result.width, result.height);
+				imageData.data.set(result.data, 0);
 			} else {
 				result = null;
 			}
@@ -7918,10 +7885,10 @@ var PinkFie = (function() {
 		if (result || !stream.bitmap) {
 			if (stream.bitmap) {
 				handle = stream.bitmap;
-				handle.setImage(canvas);
+				handle.setImage(imageData);
 			} else {
 				handle = renderer.createImageInterval();
-				handle.setImage(canvas);
+				handle.setImage(imageData);
 			}    
 		} else {
 			handle = stream.bitmap;
@@ -9250,23 +9217,9 @@ var PinkFie = (function() {
 	}
 }());
 
-/*
- * AT H.263 Decoder
- *
- * credit at source: https://github.com/ruffle-rs/h263-rs
- * 
- * (c) 2024 ATFSMedia Studio.
- */
-
 var AT_H263_Decoder = (function() {
 	const saturatingSub = function(a, b) {
 		return a - b;
-	}
-	const checked_shl = function(a, b) {
-		
-	}
-	const checked_shr = function(a, b) {
-		// body...
 	}
 	const asU8 = function(num) {
 		return (num << 24) >>> 24;
@@ -11410,15 +11363,6 @@ var AT_H263_Decoder = (function() {
 				throw new Error("unreachable");
 		}
 
-		/*
-		let mv1_pred = match index {
-				0 | 2 if col_index == 0 => MotionVector::zero(),
-				0 | 2 => predictor_vectors[current_mb - 1][index + 1],
-				1 | 3 => current_predictors[index - 1],
-				_ => unreachable!(),
-		};
-		*/
-
 		let line_index = asI32(current_mb / mb_per_line);
 		let last_line_mb = (saturatingSub(line_index, 1) * mb_per_line) + col_index;
 		let mv2_pred = null;
@@ -11614,6 +11558,7 @@ var AT_H263_Decoder = (function() {
 			var isStuffing = false;
 			if (typeof mb == "string") {
 				if (is_eof_error(mb)) {
+					console.log("eof");
 					break;
 				} else {
 					throw new Error(mb);
@@ -11858,18 +11803,6 @@ var AT_H263_Decoder = (function() {
 		H263State
 	}
 }());
-
-/*
- * at-nihav-vp6-decoder.js
- * 
- * The VP6 Decoder
- * 
- * credit at source: https://github.com/ruffle-rs/nihav-vp6
- * 
- * create on 3 de octubre de 2024, 20:25:40
- *
- * (c) 2024 ATFSMedia Studio.
- */
 
 var AT_NIHAV_VP6_Decoder = (function() {
 	function validate(isH) {
@@ -12362,6 +12295,11 @@ var AT_NIHAV_VP6_Decoder = (function() {
 		} else {
 			return null;
 		}
+	}
+	NAVideoBufferPool.prototype.get_copy = function(rbuf) {
+        let dbuf = this.get_free().cloned();
+        dbuf.data.set(rbuf.data, 0);
+        return dbuf;
 	}
 
 	const NADecoderSupport = function() {
@@ -13025,7 +12963,23 @@ var AT_NIHAV_VP6_Decoder = (function() {
 			if (hdr.is_golden && ahdr.is_golden) {
 				this.shuf.add_golden_frame(buf.cloned());
 			} else if (hdr.is_golden && !ahdr.is_golden) {
+				let cur_golden = this.shuf.get_golden();
+				let off = cur_golden.get_offset(3);
+				let stride = cur_golden.get_stride(3);
+				let new_golden = supp.pool_u8.get_copy(buf);
+				let dst = new_golden.get_data();
+				let _src = cur_golden.get_data();
+				dst.set(_src.subarray(off, off + (stride * this.mb_h * 16)), off);
+				this.shuf.add_golden_frame(new_golden);
 			} else if (!hdr.is_golden && ahdr.is_golden) {
+				let cur_golden = this.shuf.get_golden();
+				let off = cur_golden.get_offset(3);
+				let stride = cur_golden.get_stride(3);
+				let new_golden = supp.pool_u8.get_copy(cur_golden);
+				let dst = new_golden.get_data();
+				let _src = buf.get_data();
+				dst.set(_src.subarray(off, off + (stride * this.mb_h * 16)), off);
+				this.shuf.add_golden_frame(new_golden);
 			}
 		}
 		if (hdr.is_golden && !this.has_alpha) {

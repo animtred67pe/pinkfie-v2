@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -46,7 +46,7 @@
 			}
 		</style>
 	</head>
-	<body id="drop_zone">
+	<body>
 		<div id="pinkswf"></div>
         <p id="loadedegfdg"></p>
 		<script src="common.js"></script>
@@ -69,7 +69,8 @@
 				player.loadSwfFromURL(url);
 			}
 			player.setOptions(Common.playerOptions);
-			player.setOptions({
+
+			if (!Common.autoplay) player.setOptions({
 				autoplay: false
 			});
 			function dropHandler(ev) {
