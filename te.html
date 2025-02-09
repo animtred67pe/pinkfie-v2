@@ -23,6 +23,7 @@
         <a href="#" id="loadswffile">Open SWFs</a>
         <p id="demo"></p>
         <div id="playlist11"></div>
+		<script src="pinkfie-library.js"></script>
         <script src="pinkfie.js"></script>
         <script>
             var playlistarea = document.getElementById("playlist11");
@@ -53,7 +54,7 @@
 
                             var dfgfd = "<h4>" + file.name + '</h4>';
 
-                            dfgfd += "compression: " + resultswf.header.compression;
+                            dfgfd += "signature: " + resultswf.header.compression;
                             dfgfd += " version: " + resultswf.header.version;
                             dfgfd += " uncompressed length: " + resultswf.uncompressedLength + "<br>";
 

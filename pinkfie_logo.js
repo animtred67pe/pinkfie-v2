@@ -9,10 +9,6 @@
 		md5: "6c5bf868415fe30b9e190e6a8969e212"
 	});
 	_pinkfieSampleSWF.push({
-		name: "derpy_and_the_chocolate_fountain_by_animationepic-d74j637",
-		md5: "7825390b6b4d0b609673492c430383a2"
-	});
-	_pinkfieSampleSWF.push({
 		name: "513128_pen09_flash",
 		md5: "7f2599e69e8960b8a006b0f9107b82fd"
 	});
@@ -21,7 +17,7 @@
 	//  name: "607393_A_Way_Past_20%25_Cooler_Chri.swf",
 	//  md5: "ec3ebaed9e0407d310b31080d9c7bf37"
 	//});
-	
+
 	_pinkfieSampleSWF.push({
 		name: "Sorenson H.263 - CARD CRUSHA",
 		md5: "97f84adbcc4fcc7219637f2ae2ddd015"
@@ -67,6 +63,18 @@
 		md5: "7e217e68a3ff253f58fe0e577bdbe4b1"
 	});
 	_pinkfieSampleSWF.push({
+		name: "602924_DG_010",
+		md5: "602fb434274cfb63f0677112ff7ff592"
+	});
+	_pinkfieSampleSWF.push({
+		name: "_",
+		md5: "30c324809bde434052270868f03fd7b2"
+	});
+	_pinkfieSampleSWF.push({
+		name: "1",
+		md5: "99738213213c5254cb4c9d4ab63e7359"
+	});
+	_pinkfieSampleSWF.push({
 		name: "!Umbrella Dance!",
 		md5: "8f2cf336b2373bab1605875faffc6266"
 	});
@@ -90,5 +98,56 @@
 		name: "captain_berry_punch_by_obisam-d5ubekc.swf",
 		md5: "4e690ba199cf27e774d2cbc18e341fbc"
 	});
+	
+	_pinkfieSampleSWF.push({
+		name: "herr meets hair - looney tunes2",
+		md5: "6cda8639676b6628750cddb0efb09308"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "HTF",
+		md5: "4a4a606756af14bb25b25b1825600c1d_b04fba81c0c6fff5f84c7e589427c99b"
+	  });
+
+	  _pinkfieSampleSWF.push({
+		name: "Derpy loves her bucket",
+		md5: "44ff2856a28d49259f53f90008c6b8a8"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "Derpy s boat",
+		md5: "a3842dddac2665ba7c542e7fef479b1f"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "dancing derpy hooves (mlp) equine",
+		md5: "2212e2f1c7bd804b7445f087d2332dde"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "derpy_found_the_ultimate_vehicle_by_bouxn-d4gdljl",
+		md5: "be4beadbcf7296a585938b4417b147b4"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "derpyrecolor",
+		md5: "a19b6dcdea505e5c79e6baa08ba8f5f0"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "derpydooreviews_unicorn_farting_rainbow",
+		md5: "1aecdfb14da896d5ac5e4b2c584a90e7"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "derpyspitfire",
+		md5: "0e1fadadc51061fac86620c436374721"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "2",
+		md5: "e15d83d2f008fae9d57eed4ec6c588f0"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "3",
+		md5: "2134707de8b39d8111568162c02a53a8"
+	  });
+	  _pinkfieSampleSWF.push({
+		name: "4",
+		md5: "1a843f1139c11a3317977c2fa33fa0a1"
+	  });
+	  
 	window.pinkfieSampleSWF = _pinkfieSampleSWF;
 }());

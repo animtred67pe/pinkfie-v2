@@ -23,7 +23,7 @@
 		  <a class="switch-theme">switch theme</a>
 		</div>
         <div class="app">
-			<h1>PinkFie<span class="version">happy new year!</span></h1>
+			<h1>PinkFie<span class="version">WebGL v2.1.8</span></h1>
 			<p title="Feedback is welcome! Please report any bugs">The Flash Player emulator in Javascript, is still in development.</p>
 			<div style="position: relative;">
 				<a id="loadswffile">Open .swf</a>
@@ -51,11 +51,12 @@
 				</ul>
 			</div>
 			<p>PinkFie source code available on <a href="https://github.com/animtred67pe/pinkfie-v2">GitHub.</a></p>
-			<p style="color: #999999;">created by <a style="color: #999999;" href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
+			<p style="color: #888;">(c) 2025 Anim Tred Studio</p>
 		</div>
-		<script src="common.js"></script>
+		<script src="pinkfie-library.js"></script>
 		<script src="pinkfie.js"></script>
 		<script src="pinkfie_logo.js"></script>
+		<script src="common.js"></script>
         <script>
 			function querySelector(selector) {
 				var el = document.querySelector(selector);
@@ -115,10 +116,10 @@
 				ev.preventDefault();
 				if (ev.dataTransfer.items) {
 					[...ev.dataTransfer.items].forEach((item, i) => {
-					if (item.kind === 'file') {
-						const file = item.getAsFile();
-						loadSwfFile(file);
-					}
+						if (item.kind === 'file') {
+							const file = item.getAsFile();
+							loadSwfFile(file);
+						}
 					});
 				}
 			}
@@ -156,7 +157,7 @@
 					SWF Background Color
 				*/
 
-				dfgfd += "compression: " + resultswf.header.compression;
+				dfgfd += "signature: " + resultswf.header.compression;
 				dfgfd += " version: " + resultswf.header.version;
 				dfgfd += " uncompressed length: " + resultswf.uncompressedLength + "<br>";
 
@@ -259,6 +260,10 @@
 
 			var downloadPinkFieOldButton = document.getElementById("downloadoldpinkfie");
 			downloadPinkFieOldButton.onclick = downloadPinkFieOldVersions;
+
+			function getDefaultDarkMode() {
+				return window.matchMedia('(prefers-color-scheme: dark)').matches;
+			}
 
 			/** Dark Mode **/
 			function getLocalDarkMode() {
