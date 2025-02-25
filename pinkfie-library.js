@@ -1654,16 +1654,25 @@ var AT_Tess = (function() {
 					}
 					id++;
 				}
-				graphDraw({vertices, edges}, width, function(fhfg) {
-					var r = [];
-					for (let j = 0; j < fhfg.length; j++) {
-						const s = fhfg[j];
-						if (!(isNaN(s[0]) || isNaN(s[1]))) {
-							r.push(s[0]);
-							r.push(s[1]);
+				graphDraw({vertices, edges}, width, function(res) {
+					if (res.length == 4) { // TODO
+						var x1 = res[0][0];
+						var y1 = res[0][1];
+						var x2 = res[1][0];
+						var y2 = res[1][1];
+						var x3 = res[2][0];
+						var y3 = res[2][1];
+						var x4 = res[3][0];
+						var y4 = res[3][1];
+						if (isFinite(x1) && isFinite(y1) && isFinite(x2) && isFinite(y2) && isFinite(x3) && isFinite(y3) && isFinite(x4) && isFinite(y4)) {
+							vex.push(x1, y1);
+							vex.push(x2, y2);
+							vex.push(x3, y3);
+							vex.push(x1, y1);
+							vex.push(x3, y3);
+							vex.push(x4, y4);	
 						}
 					}
-					vex.push(...triangulate([r]));
 				});
 			}
 			return vex;

@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript
  * 
- * v2.1.8 (2025-02-9)
+ * v2.1.9 (2025-02-25)
  * 
  * Made in Peru
  */
@@ -66,6 +66,12 @@ var PinkFie = (function() {
 			}
 		}
 		return rgba;
+	}
+	function isMobileOrTablet() {
+		if (window) {
+			return ("orientation" in window);
+		}
+		return false;
 	}
 	class ByteInput {
 		constructor(arrayBuffer, start = 0, end = arrayBuffer.byteLength) {
@@ -2858,7 +2864,7 @@ var PinkFie = (function() {
 			return this.glyphs.getByIndex(index);
 		}
 	}
-	const getBlendMode = function (mode) {
+	const getBlendMode = function(mode) {
 		switch (mode) {
 			case 0:
 			case 1:
@@ -5335,30 +5341,26 @@ var PinkFie = (function() {
 			return c;
 		},
 	];
-	function decodePCM(data, buffer, channels, is16Bit, pos_buffer, sample_length) {
+	function decodePCM(data, channels, is16Bit, pos_buffer, sample_length, left, right) {
 		const raw = new RawDecoder(data, channels == 2, is16Bit);
 		var _pos_buffer = pos_buffer || 0;
 		var i = _pos_buffer;
-		var a = buffer.getChannelData(0);
-		var s = channels == 2 ? buffer.getChannelData(1) : null;
 		while (i - _pos_buffer < sample_length) {
 			raw.next();
-			a[i] = raw.l;
-			if (channels == 2) s[i] = raw.r;
+			left[i] = raw.l;
+			if (channels == 2) right[i] = raw.r;
 			i++;
 		}
 		return i;
 	}
-	function decodeADPCM(data, buffer, channels, pos_buffer, sample_length) {
+	function decodeADPCM(data, channels, pos_buffer, sample_length, left, right) {
 		const adpcm = new AdpcmDecoder(data, channels == 2);
 		var _ = pos_buffer || 0;
 		var q = _;
-		let a = buffer.getChannelData(0);
-		let s = channels == 2 ? buffer.getChannelData(1) : null;
 		while (q - _ < sample_length) {
 			adpcm.next();
-			a[q] = adpcm.l;
-			if (channels == 2) s[q] = adpcm.r;
+			left[q] = adpcm.l;
+			if (channels == 2) right[q] = adpcm.r;
 			q++;
 		}
 		return q;
@@ -5441,10 +5443,12 @@ var PinkFie = (function() {
 		var compressed = gg.buffer;
 		if (compressed.byteLength) {
 			return decodeMP3(audioContext, compressed, numSamples, streamInfo.latencySeek || 0);
+		} else {
+			return audioContext.createBuffer(1, 1, audioContext.sampleRate);
 		}
 	}
-	function decodeNellymoser(b, a) {
-		var z = 0, x = new Float32Array(128), r = 0, k = a.getChannelData(0), c = new Float32Array(256);
+	function decodeNellymoser(b, k) {
+		var z = 0, x = new Float32Array(128), r = 0, c = new Float32Array(256);
 		while (r < b.byteLength) {
 			AT_Nellymoser_Decoder.decode(x, new Uint8Array(b.slice(r, r + 64)), c);
 			for (let i = 0; i < 256; i++) (k[z] = c[i] / 32768), z++;
@@ -5462,16 +5466,18 @@ var PinkFie = (function() {
 			buffer = decodeMP3(audioContext, data, numSamples);
 		} else {
 			buffer = audioContext.createBuffer(channels, numSamples, format.sampleRate);
+			let a = buffer.getChannelData(0);
+			let s = channels == 2 ? buffer.getChannelData(1) : null;
 			switch (format.compression) {
 				case "ADPCM":
-					decodeADPCM(data, buffer, channels, 0, numSamples);
+					decodeADPCM(data, channels, 0, numSamples, a, s);
 					break;
 				case "uncompressed":
 				case "uncompressedUnknownEndian":
-					decodePCM(data, buffer, channels, is16Bit, 0, numSamples);
+					decodePCM(data, channels, is16Bit, 0, numSamples, a, s);
 					break;
 				case "nellymoser":
-					decodeNellymoser(data, buffer);
+					decodeNellymoser(data, a);
 					break;
 				default:
 					console.log("TODO: " + format.compression);
@@ -5491,6 +5497,8 @@ var PinkFie = (function() {
 			buffer = decodeMP3SoundStream(audioContext, blocks, streamInfo);
 		} else {
 			buffer = audioContext.createBuffer(channels, numSamples, streamStream.sampleRate);
+			let a = buffer.getChannelData(0);
+			let s = channels == 2 ? buffer.getChannelData(1) : null;
 			if (compression == "nellymoser") {
 				var gg1 = 0;
 				for (var i = 0; i < blocks.length; i++) gg1 += blocks[i].byteLength;
@@ -5502,7 +5510,7 @@ var PinkFie = (function() {
 					idd += ui8view.length;
 				}
 				var compressed = gg.buffer;
-				decodeNellymoser(compressed, buffer);
+				decodeNellymoser(compressed, a);
 			} else {
 				var oPos = 0;
 				for (let i = 0; i < blocks.length; i++) {
@@ -5510,11 +5518,11 @@ var PinkFie = (function() {
 					var posBuffer = 0;
 					switch (compression) {
 						case "ADPCM":
-							posBuffer = decodeADPCM(block, buffer, channels, oPos, samplePerBlock);
+							posBuffer = decodeADPCM(block, channels, oPos, samplePerBlock, a, s);
 							break;
 						case "uncompressed":
 						case "uncompressedUnknownEndian":
-							posBuffer = decodePCM(block, buffer, channels, is16Bit, oPos, samplePerBlock);
+							posBuffer = decodePCM(block, channels, is16Bit, oPos, samplePerBlock, a, s);
 							break;
 						default:
 							console.log("TODO: " + compression);
@@ -5657,7 +5665,7 @@ var PinkFie = (function() {
 			leftGain.connect(channelMerger, 0, 0);
 			rightGain.connect(channelMerger, 0, 1);
 			channelMerger.connect(input);
-			return { inputNode, leftGain, rightGain };
+			return { inputNode, leftGain, rightGain, outputNode: channelMerger };
 		}
 		tick() {
 			for (let i = 0; i < this.playingAudios.length; i++) {
@@ -5790,8 +5798,6 @@ var PinkFie = (function() {
 			sp.startTime = this.audioContext.currentTime;
 			sp.startTimeOriginal = this.audioContext.currentTime;
 			sp.buffer = sound.getBuffer();
-			var nodeLR = this._createPan(this.node);
-			sp.nodeLR = nodeLR;
 			sp.soundStart = 0;
 			sp.soundEnd = sp.buffer.duration;
 			sp.loopCount = 1;
@@ -5799,16 +5805,19 @@ var PinkFie = (function() {
 			if ("inSample" in soundInfo) sp.soundStart = soundInfo.inSample / 44100;
 			if ("outSample" in soundInfo) sp.soundEnd = soundInfo.outSample / 44100;
 			if ("envelope" in soundInfo) {
+				sp.nodeLR = this._createPan(this.node);
 				sp.envelopeId = 0;
 				var envelopes = soundInfo.envelope;
 				var rs = envelopes[0];
 				if (rs) {
 					const leftVal = rs.leftVolume / 32768;
 					const rightVal = rs.rightVolume / 32768;
-					nodeLR.rightGain.gain.value = Math.max(Math.min(rightVal, 1), 0);
-					nodeLR.leftGain.gain.value = Math.max(Math.min(leftVal, 1), 0);
+					sp.nodeLR.rightGain.gain.value = Math.max(Math.min(rightVal, 1), 0);
+					sp.nodeLR.leftGain.gain.value = Math.max(Math.min(leftVal, 1), 0);
 				}
 				sp.envelopes = envelopes;
+			} else {
+				sp.nodeLR = null;
 			}
 			this.playSound(sp);
 			this.playingAudios.push(sp);
@@ -5929,12 +5938,9 @@ var PinkFie = (function() {
 		}
 		stackPush(matrix, colorTransform) {
 			this.stackMt.push(multiplicationMatrix(this.getMatrix(), matrix));
-			this.stackCT.push(
-				multiplicationColor(this.getColorTransform(), colorTransform)
-			);
-			if (this.stackCT.length > this.pushTotal) {
+			this.stackCT.push(multiplicationColor(this.getColorTransform(), colorTransform));
+			if (this.stackCT.length > this.pushTotal) 
 				this.pushTotal = this.stackCT.length;
-			}
 		}
 		stackPop() {
 			this.stackMt.pop();
@@ -6597,13 +6603,11 @@ var PinkFie = (function() {
 		constructor(renderer) {
 			this.renderer = renderer;
 			const gl = this.renderer.gl;
-			this.isRender = false;
 			this.width = 0;
 			this.height = 0;
 			this.texture = gl.createTexture();
 		}
 		setImage(image) {
-			this.isRender = true;
 			this.width = image.width;
 			this.height = image.height;
 			image.toRGBA();
@@ -6621,51 +6625,93 @@ var PinkFie = (function() {
 			const canvas = document.createElement('canvas');
 			canvas.width = 360;
 			canvas.height = 360;
-			const gl = canvas.getContext('webgl2', {
+			let options = {
 				stencil: true,
 				alpha: true,
 				antialias: false,
 				depth: false,
 				failIfMajorPerformanceCaveat: true,
 				premultipliedAlpha: true
-			});
+			}
 			this.canvas = canvas;
-			this.gl = gl;
-			this.shaderTexture = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_bitmap);
-			this.shaderColor = this.createShader(RenderWebGL.vs_color, RenderWebGL.fs_color);
-			this.shaderGradient = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_gradient);
 			this.maskState = 0;
 			this.numMasks = 0;
 			this.maskStateDirty = true;
+			this.blendState = 0;
+			this.blendType = null;
 			this.view_matrix = null;
-			gl.enable(gl.BLEND);
-			gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
-			gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-			this.quatBuffer = gl.createBuffer();
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.quatBuffer);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+			this.gl = canvas.getContext('webgl2', options);
+			if (isMobileOrTablet()) {
+				this.msaa_sample_count = 2;
+			} else {
+				this.msaa_sample_count = 4;
+			}
+			var max_samples = this.gl.getParameter(this.gl.MAX_SAMPLES);
+			if (max_samples != null) {
+				if (max_samples > 0 && max_samples < this.msaa_sample_count) {
+					console.log("Device only supports", max_samples, "xMSAA");
+					this.msaa_sample_count = max_samples;
+				}
+			}
+			let driver_info = this.gl.getExtension("WEBGL_debug_renderer_info");
+			console.log(this.gl.getParameter(driver_info.UNMASKED_RENDERER_WEBGL));
+			this.shaderColor = this.createShader(RenderWebGL.vs_color, RenderWebGL.fs_color);
+			this.shaderGradient = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_gradient);
+			this.shaderTexture = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_bitmap);
+			this.shaderCopy = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_copy);
+			this.initShaderBlend();
+			this.gl.enable(this.gl.BLEND);
+			this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
+			this.quatBuffer = this.gl.createBuffer();
+			this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.quatBuffer);
+			this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1]), this.gl.STATIC_DRAW);
 			this.renderbuffer_width = 0;
 			this.renderbuffer_height = 0;
 			this.msaa_buffers = null;
 			this.resize(480, 360);
 		}
+		initShaderBlend() {
+			if ((this.msaa_sample_count <= 1)) {
+				return;
+			}
+			this.shaderBlendNormal = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_normal);
+			this.shaderBlendAdd = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_add);
+			this.shaderBlendSubtract = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_subtract);
+			this.shaderBlendMultiply = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_multiply);
+			this.shaderBlendLighten = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_lighten);
+			this.shaderBlendDarken = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_darken);
+			this.shaderBlendScreen = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_screen);
+			this.shaderBlendOverlay = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_overlay);
+			this.shaderBlendHardlight = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_hardlight);
+			this.shaderBlendDifference = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_difference);
+			this.shaderBlendInvert = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_invert);
+		}
 		build_msaa_buffers() {
 			const gl = this.gl;
+			if (this.msaa_sample_count <= 1) {
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+				return;
+			}
 			if (this.msaa_buffers) {
 				gl.deleteRenderbuffer(this.msaa_buffers.color_renderbuffer);
 				gl.deleteRenderbuffer(this.msaa_buffers.stencil_renderbuffer);
 				gl.deleteFramebuffer(this.msaa_buffers.render_framebuffer);
 				gl.deleteFramebuffer(this.msaa_buffers.color_framebuffer);
 				gl.deleteTexture(this.msaa_buffers.framebuffer_texture);
+				gl.deleteFramebuffer(this.msaa_buffers.render_blend_front_framebuffer);
+				gl.deleteFramebuffer(this.msaa_buffers.render_blend_back_framebuffer);
+				gl.deleteTexture(this.msaa_buffers.blend_texture_front);
+				gl.deleteTexture(this.msaa_buffers.blend_texture_back);
 			}
 			let render_framebuffer = gl.createFramebuffer();
 			let color_framebuffer = gl.createFramebuffer();
 			let color_renderbuffer = gl.createRenderbuffer();
 			gl.bindRenderbuffer(gl.RENDERBUFFER, color_renderbuffer);
-			gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, this.renderbuffer_width, this.renderbuffer_height);
+			gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.msaa_sample_count, gl.RGBA8, this.renderbuffer_width, this.renderbuffer_height);
 			let stencil_renderbuffer = gl.createRenderbuffer();
 			gl.bindRenderbuffer(gl.RENDERBUFFER, stencil_renderbuffer);
-			gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.STENCIL_INDEX8, this.renderbuffer_width, this.renderbuffer_height);
+			gl.renderbufferStorageMultisample(gl.RENDERBUFFER, this.msaa_sample_count, gl.STENCIL_INDEX8, this.renderbuffer_width, this.renderbuffer_height);
 			gl.bindFramebuffer(gl.FRAMEBUFFER, render_framebuffer);
 			gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,  gl.RENDERBUFFER, color_renderbuffer);
 			gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT,  gl.RENDERBUFFER, stencil_renderbuffer);
@@ -6679,13 +6725,44 @@ var PinkFie = (function() {
 			gl.bindTexture(gl.TEXTURE_2D, null);
 			gl.bindFramebuffer(gl.FRAMEBUFFER, color_framebuffer);
 			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, framebuffer_texture, 0);
+			let render_blend_front_framebuffer = gl.createFramebuffer();
+			gl.bindFramebuffer(gl.FRAMEBUFFER, render_blend_front_framebuffer);
+			gl.enable(gl.BLEND);
+			gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
+			gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+			let blend_texture_front = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, blend_texture_front);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.renderbuffer_width, this.renderbuffer_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, blend_texture_front, 0);
+			let render_blend_back_framebuffer = gl.createFramebuffer();
+			gl.bindFramebuffer(gl.FRAMEBUFFER, render_blend_back_framebuffer);
+			gl.enable(gl.BLEND);
+			gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
+			gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+			let blend_texture_back = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, blend_texture_back);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.renderbuffer_width, this.renderbuffer_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, blend_texture_back, 0);
+			gl.bindTexture(gl.TEXTURE_2D, null);
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 			this.msaa_buffers = {
 				color_renderbuffer,
 				stencil_renderbuffer,
 				render_framebuffer,
 				color_framebuffer,
-				framebuffer_texture
+				framebuffer_texture,
+				render_blend_front_framebuffer,
+				blend_texture_front,
+				render_blend_back_framebuffer,
+				blend_texture_back
 			};
 		}
 		createShader(vs, fs, definitions) {
@@ -6753,8 +6830,8 @@ var PinkFie = (function() {
 			this.view_matrix = [1.0 / (w / 2.0), 0.0, 0.0, 0.0, 0.0, -1.0 / (h / 2.0), 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 1.0, 0.0, 1.0];
 			this.renderbuffer_width = this.canvas.width;
 			this.renderbuffer_height = this.canvas.height;
-			this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 			this.build_msaa_buffers();
+			this.gl.viewport(0, 0, this.renderbuffer_width, this.renderbuffer_height);
 		}
 		createImageInterval() {
 			return new RenderWebGLImageInterval(this);
@@ -6762,17 +6839,17 @@ var PinkFie = (function() {
 		shapeToCanvas(shape, library) {
 			const gl = this.gl;
 			var fill = shape.fill;
-			var r = (shape.type == 1) ? this.createStroke(shape.path2d, shape.width) : this.createFill(shape.path2d);
+			var vertices = (shape.type == 1) ? this.createStroke(shape.path2d, shape.width) : this.createFill(shape.path2d);
 			var bufferPos = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, bufferPos);
-			gl.bufferData(gl.ARRAY_BUFFER, r, gl.STATIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 			if (fill.type == 0) {
 				var color = fill.color;
 				return {
 					type: 0,
 					bufferPos: bufferPos,
 					color: [color[0] / 255, color[1] / 255, color[2] / 255, color[3]],
-					num: (r.length / 2),
+					num: (vertices.length / 2),
 				};
 			} else if (fill.type == 1) {
 				var ratios = [];
@@ -6789,7 +6866,7 @@ var PinkFie = (function() {
 				return {
 					type: 1,
 					bufferPos: bufferPos,
-					num: (r.length / 2),
+					num: (vertices.length / 2),
 					ratios,
 					colors,
 					focal: fill.focal || 0,
@@ -6803,7 +6880,7 @@ var PinkFie = (function() {
 				return {
 					type: 2,
 					bufferPos: bufferPos,
-					num: (r.length / 2),
+					num: (vertices.length / 2),
 					texture: texture,
 					isRepeating: fill.isRepeating,
 					isSmoothed: fill.isSmoothed,
@@ -6811,16 +6888,112 @@ var PinkFie = (function() {
 				};
 			}
 		}
-		pushBlendMode() {
+		getBlendShader(blendMode) {
+			switch (blendMode) {
+				case "add": return this.shaderBlendAdd;
+				case "subtract": return this.shaderBlendSubtract;
+				case "multiply": return this.shaderBlendMultiply;
+				case "lighten": return this.shaderBlendLighten;
+				case "darken": return this.shaderBlendDarken;
+				case "screen": return this.shaderBlendScreen;
+				case "overlay": return this.shaderBlendOverlay;
+				case "hardlight": return this.shaderBlendHardlight;
+				case "difference": return this.shaderBlendDifference;
+				case "invert": return this.shaderBlendInvert;
+				default: return null;
+			}
+		}
+		pushBlendMode(blendMode) {
+			if (!this.msaa_buffers) return;
+			const gl = this.gl;
+			if ((this.maskState == 0) && (this.blendState == 0)) {
+				this.blendType = this.getBlendShader(blendMode);
+				gl.disable(gl.STENCIL_TEST);
+				gl.colorMask(true, true, true, true);
+				gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+				gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.msaa_buffers.color_framebuffer);
+				gl.blitFramebuffer(0, 0, this.renderbuffer_width, this.renderbuffer_height, 0, 0, this.renderbuffer_width, this.renderbuffer_height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_front_framebuffer);
+				this.useShader(this.shaderCopy);
+				this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+				this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+				this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+				this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+				gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.framebuffer_texture);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.drawArrays(gl.TRIANGLES, 0, 12);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+				gl.clearColor(0, 0, 0, 0);
+				gl.stencilMask(0xff);
+				gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+			}
+			this.blendState++;
 		}
 		popBlendMode() {
+			if (!this.msaa_buffers) return;
+			const gl = this.gl;
+			this.blendState--;
+			if (this.blendType && (this.blendState == 0)) {
+				gl.disable(gl.STENCIL_TEST);
+				gl.colorMask(true, true, true, true);
+				gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+				gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.msaa_buffers.color_framebuffer);
+				gl.blitFramebuffer(0, 0, this.renderbuffer_width, this.renderbuffer_height, 0, 0, this.renderbuffer_width, this.renderbuffer_height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_back_framebuffer);
+				this.useShader(this.shaderCopy);
+				this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+				this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+				this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+				this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+				gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.framebuffer_texture);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.drawArrays(gl.TRIANGLES, 0, 12);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+				gl.clearColor(0, 0, 0, 0);
+				gl.stencilMask(0xff);
+				gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+				this.useShader(this.blendType);
+				this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+				this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+				this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+				this.currentShader.uniform1i('parent_texture', 0);
+				this.currentShader.uniform1i('current_texture', 1);
+				this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+				gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.blend_texture_front);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.activeTexture(gl.TEXTURE1);
+				gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.blend_texture_back);
+				gl.activeTexture(gl.TEXTURE1);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.activeTexture(gl.TEXTURE0);
+				gl.drawArrays(gl.TRIANGLES, 0, 12);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_front_framebuffer);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_back_framebuffer);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+				this.blendType = null;
+			}
 		}
 		blend(commands, blendMode) {
+			this.pushBlendMode(blendMode);
 			commands.execute(this);
+			this.popBlendMode();
 		}
 		renderBitmap(imageInterval, matrix, colorTransform, isSmoothed) {
 			if (!imageInterval) return;
-			if (!imageInterval.isRender) return;
 			const gl = this.gl;
 			this.setStencilState();
 			matrix = multiplicationMatrix(matrix, [imageInterval.width, 0, 0, imageInterval.height, 0, 0])
@@ -6859,17 +7032,17 @@ var PinkFie = (function() {
 				}
 				this.useShader(shader);
 				gl.bindBuffer(gl.ARRAY_BUFFER, si.bufferPos);
-				this.currentShader.attributeBuffer("position", si.bufferPos, 2);
+				shader.attributeBuffer("position", si.bufferPos, 2);
 				if (si.type == 0) {
-					this.currentShader.uniform4f('u_color', si.color[0], si.color[1], si.color[2], si.color[3]);
+					shader.uniform4f('u_color', si.color[0], si.color[1], si.color[2], si.color[3]);
 				} else if (si.type == 1) {
-					this.currentShader.uniformMatrix3("u_matrix", si.matrix);
-					this.currentShader.uniform1i("u_gradient_type", si.isRadial ? 2 : 0);
-					this.currentShader.uniform1fv("u_ratios[0]", si.ratios);
-					this.currentShader.uniform4fv("u_colors[0]", si.colors);
-					this.currentShader.uniform1i("u_repeat_mode", si.repeat);
-					this.currentShader.uniform1f("u_focal_point", si.focal);
-					this.currentShader.uniform1i("u_interpolation", 0);
+					shader.uniformMatrix3("u_matrix", si.matrix);
+					shader.uniform1i("u_gradient_type", si.isRadial ? 2 : 0);
+					shader.uniform1fv("u_ratios[0]", si.ratios);
+					shader.uniform4fv("u_colors[0]", si.colors);
+					shader.uniform1i("u_repeat_mode", si.repeat);
+					shader.uniform1f("u_focal_point", si.focal);
+					shader.uniform1i("u_interpolation", 0);
 				} else if (si.type == 2) {
 					let filter = si.isSmoothed ? gl.LINEAR : gl.NEAREST;
 					gl.bindTexture(gl.TEXTURE_2D, si.texture);
@@ -6878,12 +7051,12 @@ var PinkFie = (function() {
 					let wrap = si.isRepeating ? gl.REPEAT : gl.CLAMP_TO_EDGE;
 					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
 					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
-					this.currentShader.uniformMatrix3("u_matrix", si.matrix);
+					shader.uniformMatrix3("u_matrix", si.matrix);
 				}
-				this.currentShader.uniformMatrix4("view_matrix", this.view_matrix);
-				this.currentShader.uniformMatrix4("world_matrix", world_matrix);
-				this.currentShader.uniform4f('mult_color', colorTransform[0], colorTransform[1], colorTransform[2], colorTransform[3]);
-				this.currentShader.uniform4f('add_color', colorTransform[4] / 255, colorTransform[5] / 255, colorTransform[6] / 255, colorTransform[7] / 255);
+				shader.uniformMatrix4("view_matrix", this.view_matrix);
+				shader.uniformMatrix4("world_matrix", world_matrix);
+				shader.uniform4f('mult_color', colorTransform[0], colorTransform[1], colorTransform[2], colorTransform[3]);
+				shader.uniform4f('add_color', colorTransform[4] / 255, colorTransform[5] / 255, colorTransform[6] / 255, colorTransform[7] / 255);
 				gl.drawArrays(gl.TRIANGLES, 0, si.num);
 			}
 		}
@@ -6991,13 +7164,13 @@ var PinkFie = (function() {
 			this.endFrame();
 		}
 		beginFrame(clear) {
+			this.blendState = 0;
+			this.blendType = null;
 			this.maskState = 0;
 			this.numMasks = 0;
 			this.maskStateDirty = true;
 			const gl = this.gl;
-			if (this.msaa_buffers) {
-				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
-			}
+			if (this.msaa_buffers) gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
 			gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 			this.setStencilState();
 			gl.clearColor(clear[0] / 255, clear[1] / 255, clear[2] / 255, 1);
@@ -7005,28 +7178,27 @@ var PinkFie = (function() {
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 		}
 		endFrame() {
-			const gl = this.gl;
 			if (this.msaa_buffers) {
+				const gl = this.gl;
 				gl.disable(gl.STENCIL_TEST);
 				gl.colorMask(true, true, true, true);
 				gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
 				gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.msaa_buffers.color_framebuffer);
 				gl.blitFramebuffer(0, 0, this.renderbuffer_width, this.renderbuffer_height, 0, 0, this.renderbuffer_width, this.renderbuffer_height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
 				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-				gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-				this.useShader(this.shaderTexture);
+				gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				this.useShader(this.shaderCopy);
 				this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
 				this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
 				this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-				this.currentShader.uniform4f('mult_color', 1, 1, 1, 1);
-				this.currentShader.uniform4f('add_color', 0, 0, 0, 0);
 				this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
 				gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.framebuffer_texture);
 				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-				gl.drawArrays(gl.TRIANGLES, 0, 12);
+				gl.drawArrays(gl.TRIANGLES, 0, 12);	
 			}
 		}
 	}
@@ -7034,9 +7206,9 @@ var PinkFie = (function() {
 #version 100
 
 #ifdef GL_FRAGMENT_PRECISION_HIGH
-	precision highp float;
+precision highp float;
 #else
-	precision mediump float;
+precision mediump float;
 #endif
 
 uniform mat4 view_matrix;
@@ -7057,9 +7229,9 @@ void main() {
 #version 100
 
 #ifdef GL_FRAGMENT_PRECISION_HIGH
-	precision highp float;
+precision highp float;
 #else
-	precision mediump float;
+precision mediump float;
 #endif
 
 uniform mat4 view_matrix;
@@ -7085,13 +7257,35 @@ void main() {
 
 	gl_FragColor = color;
 }`;
+	RenderWebGL.shader_copy = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D u_texture;
+
+varying vec2 frag_uv;
+
+void main() {
+	gl_FragColor = texture2D(u_texture, frag_uv);
+}`;
 	RenderWebGL.vs_color = `
 #version 100
 
 #ifdef GL_FRAGMENT_PRECISION_HIGH
-    precision highp float;
+precision highp float;
 #else
-    precision mediump float;
+precision mediump float;
 #endif
 
 uniform mat4 view_matrix;
@@ -7105,19 +7299,19 @@ attribute vec2 position;
 varying vec4 frag_color;
 
 void main() {
-  frag_color = clamp(u_color * mult_color + add_color, 0.0, 1.0);
-  float alpha = clamp(frag_color.a, 0.0, 1.0);
-  frag_color = vec4(frag_color.rgb * alpha, alpha);
+	frag_color = clamp(u_color * mult_color + add_color, 0.0, 1.0);
+	float alpha = clamp(frag_color.a, 0.0, 1.0);
+	frag_color = vec4(frag_color.rgb * alpha, alpha);
 
-  gl_Position =  view_matrix * world_matrix * vec4(position, 0.0, 1.0);
+	gl_Position =  view_matrix * world_matrix * vec4(position, 0.0, 1.0);
 }`;
 	RenderWebGL.fs_color = `
 #version 100
 
 #ifdef GL_FRAGMENT_PRECISION_HIGH
-    precision highp float;
+precision highp float;
 #else
-    precision mediump float;
+precision mediump float;
 #endif
 
 uniform mat4 view_matrix;
@@ -7128,15 +7322,15 @@ uniform vec4 add_color;
 varying vec4 frag_color;
 
 void main() {
-    gl_FragColor = frag_color;
+	gl_FragColor = frag_color;
 }`;
 	RenderWebGL.shader_gradient = `
 #version 100
 
 #ifdef GL_FRAGMENT_PRECISION_HIGH
-	precision highp float;
+precision highp float;
 #else
-	precision mediump float;
+precision mediump float;
 #endif
 
 uniform mat4 view_matrix;
@@ -7155,10 +7349,10 @@ uniform int u_interpolation;
 varying vec2 frag_uv;
 
 vec4 interpolate(float t, float ratio1, float ratio2, vec4 color1, vec4 color2) {
-	color1 = clamp(mult_color * color1 + add_color, 0.0, 1.0);
-	color2 = clamp(mult_color * color2 + add_color, 0.0, 1.0);
-	float a = (t - ratio1) / (ratio2 - ratio1);
-	return mix(color1, color2, a);
+color1 = clamp(mult_color * color1 + add_color, 0.0, 1.0);
+color2 = clamp(mult_color * color2 + add_color, 0.0, 1.0);
+float a = (t - ratio1) / (ratio2 - ratio1);
+return mix(color1, color2, a);
 }
 
 vec3 linear_to_srgb(vec3 linear) {
@@ -7254,6 +7448,388 @@ void main() {
 
 	float alpha = clamp(color.a, 0.0, 1.0);
 	gl_FragColor = vec4(color.rgb * alpha, alpha);
+}`;
+	RenderWebGL.shader_blend_normal = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D current_texture;
+uniform sampler2D parent_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	return src + dst - dst * src.a;
+}
+
+void main() {
+	vec4 src = texture2D(current_texture, frag_uv);
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
+}`;
+RenderWebGL.shader_blend_add = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D current_texture;
+uniform sampler2D parent_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	vec4 c = vec4(dst.rgb + src.rgb, dst.a + src.a);
+	return mix(c, src, step(1.0, 0.0));
+}
+
+void main() {
+	vec4 src = texture2D(current_texture, frag_uv);
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
+}`;
+RenderWebGL.shader_blend_subtract = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D current_texture;
+uniform sampler2D parent_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	vec4 c = vec4(dst.rgb - src.rgb, dst.a + src.a);
+	return mix(c, src, step(dst.a, 0.0));
+}
+
+void main() {
+	vec4 src = texture2D(current_texture, frag_uv);
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
+}`;
+	RenderWebGL.shader_blend_multiply = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D current_texture;
+uniform sampler2D parent_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	vec4 a = src - src * dst.a;
+	vec4 b = dst - dst * src.a;
+	vec4 c = src * dst;
+	return a + b + c;
+}
+
+void main() {
+	vec4 src = texture2D(current_texture, frag_uv);
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
+}`;
+	RenderWebGL.shader_blend_lighten = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D current_texture;
+uniform sampler2D parent_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	if (src.a > 0.0) {
+		src.rgb /= src.a;
+		vec4 c = vec4(mix(dst.rgb, src.rgb, step(dst.rgb, src.rgb)), 1.0) * src.a;
+		return c + dst * (1.0 - src.a);
+	} else {
+	 	return dst;
+	}
+}
+
+void main() {
+	vec4 src = texture2D(current_texture, frag_uv);
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
+}`;
+	RenderWebGL.shader_blend_darken = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D current_texture;
+uniform sampler2D parent_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	if (dst.a == 0.0) {
+		return src;
+	} else if (src.a > 0.0) {
+		src.rgb /= src.a;
+		vec4 c = vec4(mix(dst.rgb, src.rgb, step(src.rgb, dst.rgb)), 1.0) * src.a;
+		return c + dst * (1.0 - src.a);
+	} else {
+	 	return dst;
+	}
+}
+
+void main() {
+	vec4 src = texture2D(current_texture, frag_uv);
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
+}`;
+	RenderWebGL.shader_blend_screen = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D current_texture;
+uniform sampler2D parent_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	if (src.a > 0.0) {
+		vec4 _src = src;
+		vec4 _dst = dst;
+		_src.rgb /= src.a;
+		_dst.rgb /= dst.a;
+		vec4 _out = _src;
+		_out.r = (1.0 - ((1.0 - _src.r) * (1.0 - _dst.r)));
+		_out.g = (1.0 - ((1.0 - _src.g) * (1.0 - _dst.g)));
+		_out.b = (1.0 - ((1.0 - _src.b) * (1.0 - _dst.b)));
+		return vec4(src.rgb * (1.0 - dst.a) + dst.rgb * (1.0 - src.a) + src.a * dst.a * _out.rgb, src.a + dst.a * (1.0 - src.a));
+	} else {
+		return dst;
+	}
+}
+
+void main() {
+	vec4 src = texture2D(current_texture, frag_uv);
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
+}`;
+	RenderWebGL.shader_blend_overlay = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D parent_texture;
+uniform sampler2D current_texture;
+
+varying vec2 frag_uv;
+
+void main() {
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	vec4 src = texture2D(current_texture, frag_uv);
+	if (src.a > 0.0) {
+		vec4 _src = src;
+		vec4 _dst = dst;
+		_src.rgb /= src.a;
+		_dst.rgb /= dst.a;
+		vec4 _out = _src;
+		if (_dst.r <= 0.5) { _out.r = (2.0 * _src.r * _dst.r); } else { _out.r = (1.0 - 2.0 * (1.0 - _dst.r) * (1.0 - _src.r)); }
+		if (_dst.g <= 0.5) { _out.g = (2.0 * _src.g * _dst.g); } else { _out.g = (1.0 - 2.0 * (1.0 - _dst.g) * (1.0 - _src.g)); }
+		if (_dst.b <= 0.5) { _out.b = (2.0 * _src.b * _dst.b); } else { _out.b = (1.0 - 2.0 * (1.0 - _dst.b) * (1.0 - _src.b)); }
+		gl_FragColor = vec4(src.rgb * (1.0 - dst.a) + dst.rgb * (1.0 - src.a) + src.a * dst.a * _out.rgb, src.a + dst.a * (1.0 - src.a));
+	} else {
+		gl_FragColor = dst;
+	}
+}`;
+	RenderWebGL.shader_blend_hardlight = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D current_texture;
+uniform sampler2D parent_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	if (src.a > 0.0) {
+		vec4 _src = src;
+		vec4 _dst = dst;
+		_src.rgb /= src.a;
+		_dst.rgb /= dst.a;
+		vec4 _out = _src;
+		if (_src.r <= 0.5) { _out.r = (2.0 * _src.r * _dst.r); } else { _out.r = (1.0 - 2.0 * (1.0 - _dst.r) * (1.0 - _src.r)); }
+		if (_src.g <= 0.5) { _out.g = (2.0 * _src.g * _dst.g); } else { _out.g = (1.0 - 2.0 * (1.0 - _dst.g) * (1.0 - _src.g)); }
+		if (_src.b <= 0.5) { _out.b = (2.0 * _src.b * _dst.b); } else { _out.b = (1.0 - 2.0 * (1.0 - _dst.b) * (1.0 - _src.b)); }
+		_out.a = 1.0;
+		return vec4(src.rgb * (1.0 - dst.a) + dst.rgb * (1.0 - src.a) + src.a * dst.a * _out.rgb, src.a + dst.a * (1.0 - src.a));
+	} else {
+	 	return dst;
+	}
+}
+
+void main() {
+	vec4 src = texture2D(current_texture, frag_uv);
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
+}`;
+	RenderWebGL.shader_blend_difference = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D current_texture;
+uniform sampler2D parent_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	if (src.a > 0.0) {
+		src.rgb /= src.a;
+		vec4 c = vec4(abs(src.rgb - dst.rgb), 1.0) * src.a;
+		return c + dst * (1.0 - src.a);
+	} else {
+	 	return dst;
+	}
+}
+
+void main() {
+	vec4 src = texture2D(current_texture, frag_uv);
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
+}`;
+	RenderWebGL.shader_blend_invert = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D parent_texture;
+uniform sampler2D current_texture;
+
+varying vec2 frag_uv;
+
+vec4 blend (in vec4 src, in vec4 dst) {
+	if (src.a > 0.0) {
+		vec4 c = vec4(1.0 - dst.rgb, 1.0) * src.a;
+		return c + dst * (1.0 - src.a);
+	} else {
+	 	return dst;
+	}
+}
+
+void main() {
+	vec4 dst = texture2D(parent_texture, frag_uv);
+	vec4 src = texture2D(current_texture, frag_uv);
+	gl_FragColor = blend(src, dst);
 }`;
 	class H263Decoder {
 		constructor(deblocking) {
@@ -7685,6 +8261,7 @@ void main() {
 			try {
 				this.renderer = new RenderWebGL();
 			} catch(e) {
+				console.log(e);
 				this.renderer = new RenderCanvas2d();
 			}
 			this.canvas = this.renderer.canvas;
@@ -7993,6 +8570,17 @@ void main() {
 				this.viewStats();
 				this.MenuVertical.style.display = "none";
 			}));
+			this.fullscreenButton = this._createE("Enter fullscreen", function () {
+				if (this.fullscreenEnabled) {
+					this.fullscreenButton.textContent = "Enter fullscreen";
+					this.exitFullscreen();
+				} else {
+					this.fullscreenButton.textContent = "Exit fullscreen";
+					this.enterFullscreen();
+				}
+				this.MenuVertical.style.display = "none";
+			})
+			this.MenuVertical.appendChild(this.fullscreenButton);
 			this.MenuVertical.appendChild(this._createE("Save Screenshot", function () {
 				this.saveScreenshot();
 				this.MenuVertical.style.display = "none";
@@ -8002,20 +8590,6 @@ void main() {
 				this.MenuVertical.style.display = "none";
 			});
 			this.MenuVertical.appendChild(this.movie_swfDownload);
-			this.MenuVertical.appendChild(this._createE("Full Screen", function () {
-				if (this.fullscreenEnabled) {
-					this._displayMessage[1] = "Full Screen: Off";
-					this._displayMessage[0] = 2;
-					this._displayMessage[2] = Date.now();
-					this.exitFullscreen();
-				} else {
-					this._displayMessage[1] = "Full Screen: On";
-					this._displayMessage[0] = 2;
-					this._displayMessage[2] = Date.now();
-					this.enterFullscreen();
-				}
-				this.MenuVertical.style.display = "none";
-			}));
 			this.MenuVertical.appendChild(this._createE("Settings", function () {
 				this.showSetting();
 				this.MenuVertical.style.display = "none";
@@ -8490,8 +9064,7 @@ void main() {
 			else this.movie_playStop.innerHTML = "Play";
 			if (this.isLoopMovie()) this.movie_loopButton.innerHTML = "Loop: ON";
 			else this.movie_loopButton.innerHTML = "Loop: OFF";
-			if (this.messageStatus[3] &&
-				Date.now() - this.messageStatus[2] > this.messageStatus[1]) {
+			if (this.messageStatus[3] && Date.now() - this.messageStatus[2] > this.messageStatus[1]) {
 				this.messageE.style.display = "none";
 			} else {
 				this.messageContentE.textContent = this.messageStatus[0];
@@ -8550,6 +9123,13 @@ void main() {
 				this.debugCanvas.style.width = rect[2] + "px";
 				this.statsE.style.left = rect[0] + "px";
 				this.statsE.style.top = rect[1] + "px";
+				var rend = this.options.rendermode;
+				if (rend == 1 || rend == 2) {
+					this.debugCanvas.style.display = "";
+					this.renderBounds(rend == 2);
+				} else {
+					this.debugCanvas.style.display = "none";
+				}
 			}
 		}
 		resize(w, h) {
@@ -8696,6 +9276,7 @@ void main() {
 		}
 		saveScreenshot() {
 			if (!this.hasFlash()) return;
+			this.flash.render();
 			var _movieCanvas = this.flash.canvas;
 			var j = this.getSwfName();
 			var h = this.scanned.scan(_movieCanvas);
